@@ -1,0 +1,41 @@
+# 数据与模型（体积大，含版权）
+data/raw/
+models/
+*.pdf
+
+# 环境与密钥
+.env
+.env.*
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Milvus / Neo4j 本地数据卷
+volumes/

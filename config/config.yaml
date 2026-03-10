@@ -1,0 +1,80 @@
+# 新能源汽车故障诊断智能问答系统 — 统一配置
+# 修改此文件前请先备份，或创建 config.local.yaml（已 gitignore）覆盖
+
+# ─── 模型配置 ─────────────────────────────────────────────────────────
+models:
+  # Qwen2-VL-7B-Instruct：本地部署（RTX 4090）
+  qwen_vl:
+    model_path: "/mnt/d/models/Qwen2-VL-7B-Instruct"
+    device: "cuda:0"
+    max_new_tokens: 2048
+    temperature: 0.1
+    do_sample: false
+
+  # 语义嵌入模型
+  embedding:
+    model_name: "BAAI/bge-base-zh-v1.5"
+    device: "cuda:0"
+    batch_size: 64
+    max_seq_length: 512
+
+  # 重排序模型
+  reranker:
+    model_name: "BAAI/bge-reranker-v2-m3"
+    device: "cuda:0"
+    batch_size: 32
+
+# ─── 向量数据库（Milvus）─────────────────────────────────────────────
+milvus:
+  host: "localhost"
+  port: 19530
+  collection_name: "nev_chunks"
+  dim: 768                  # bge-base-zh-v1.5 输出维度
+  index_type: "IVF_FLAT"
+  metric_type: "IP"         # 内积（与 BGE 归一化后等价于余弦）
+  nlist: 1024
+  nprobe: 16
+
+# ─── 知识图谱（Neo4j）────────────────────────────────────────────────
+neo4j:
+  uri: "bolt://localhost:7687"
+  username: "neo4j"
+  password: "nev_password_change_me"  # 与 docker-compose.yml 保持一致
+  database: "neo4j"
+
+# ─── 检索配置 ─────────────────────────────────────────────────────────
+retrieval:
+  # BM25
+  bm25_top_k: 20
+
+  # 向量检索
+  embedding_top_k: 20
+
+  # RRF 融合参数
+  rrf_k: 60                 # RRF 常数，通常取 60
+
+  # 重排序
+  rerank_input_k: 20        # 送入 reranker 的候选数
+  rerank_output_k: 5        # 最终返回片段数
+
+# ─── 数据处理 ─────────────────────────────────────────────────────────
+data_processing:
+  # PDF 分块
+  chunk_size: 512           # 字符数
+  chunk_overlap: 64
+  # 表格提取
+  table_extraction: true
+  # 电路图页面阈值（图像占比超过此值时触发 OCR）
+  circuit_image_ratio: 0.3
+
+# ─── API 服务 ─────────────────────────────────────────────────────────
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false             # 生产环境设为 false
+
+# ─── 日志 ────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"             # DEBUG / INFO / WARNING / ERROR
+  file: "logs/nev_qa.log"
+  rotation: "10 MB"
