@@ -7,6 +7,7 @@ models/
 .env
 .env.*
 *.key
+config/config.local.yaml
 
 # Python
 __pycache__/
@@ -22,6 +23,7 @@ build/
 .mypy_cache/
 htmlcov/
 .coverage
+.hf-cache/
 
 # IDE
 .vscode/
@@ -36,6 +38,10 @@ Thumbs.db
 # Logs
 logs/
 *.log
+runtime/
 
 # Milvus / Neo4j 本地数据卷
 volumes/
+
+# 生成产物
+data/processed/

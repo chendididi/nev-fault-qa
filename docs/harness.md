@@ -1,0 +1,114 @@
+# Harness
+
+这个仓库的 harness 目标不是“什么都自动化”，而是给 agent 和维护者一条稳定、可分层、可证明的验证路径。
+
+## 当前可用 harness
+
+- `make check`
+  编译检查 + 轻量单测 + 结构边界测试，不依赖 GPU、Milvus、Neo4j。
+- `python scripts/build_index.py --input data/sample/ --skip-embedding`
+  用内置示例数据生成 `data/processed/chunks.json`，验证离线 BM25 数据链路。
+- `python scripts/load_embeddings.py --input data/sample/sample_chunks.json`
+  把现成 chunks JSON 导入 Milvus，验证向量索引入口。
+- `python scripts/build_graph.py --chunks-file data/processed/chunks.json`
+  验证实体抽取和 Neo4j 写入链路。
+- `python tests/eval_ragas.py`
+  对运行中的 API 做质量评估，默认使用内置评估集。
+
+## 建议验证层级
+
+### Level 0: 纯本地、最快反馈
+
+先跑：
+
+```bash
+make check
+```
+
+这一步证明：
+
+- Python 文件可编译
+- 检索 / 生成相关轻量逻辑仍可用
+- 模块边界没有被破坏
+
+### Level 1: 离线数据链路
+
+当你改了 `src/data_processing/`、`scripts/build_index.py` 或 chunks 契约时，至少跑：
+
+```bash
+python scripts/build_index.py --input data/sample/ --skip-embedding
+```
+
+这一步证明：
+
+- 仓库内置样例输入可以生成非空 `data/processed/chunks.json`
+- 不会再出现“文档说能跑，脚本实际写出空产物”的假快乐路径
+
+### Level 2: 检索基础设施
+
+当你改了向量检索或 Milvus 相关逻辑时，先启动依赖：
+
+```bash
+docker compose up -d
+python scripts/load_embeddings.py --input data/sample/sample_chunks.json
+```
+
+这一步证明：
+
+- Milvus 可连接
+- 向量模型可加载
+- chunks JSON 可以被写入向量索引
+
+### Level 3: 端到端
+
+当你改了 API 编排、prompt、图谱调用、SSE 或前端时，再跑：
+
+```bash
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+streamlit run src/frontend/streamlit_app.py
+python tests/eval_ragas.py
+```
+
+这一步证明：
+
+- 运行时组件能一起启动
+- API 能返回答案和来源
+- 质量指标至少能跑通一轮评估
+
+## 常用命令入口
+
+仓库现在提供了一个统一入口：
+
+```bash
+make help
+```
+
+推荐优先使用 Make 目标，而不是把长命令散落在聊天记录或 README 片段里。
+
+## 失败排查
+
+- `make check` 失败
+  先看是编译错误、单测失败还是结构边界测试失败，再缩小到对应模块。
+- `build_index.py` 产物为空
+  检查输入目录里是否有 PDF，或是否存在 `sample_chunks.json`。
+- API 启动失败
+  先确认模型路径、Milvus、Neo4j 和 `config.local.yaml` 覆盖是否一致。
+- 图谱查询为空
+  先确认 `build_graph.py` 是否已执行，以及 Neo4j 是否有节点。
+- RAGAS 失败
+  先确认 API 已启动，再确认答案字段和 sources 字段格式没有破坏脚本契约。
+
+## 仍然缺的 harness
+
+这是下一批优先级最高的改造项：
+
+1. API 级 smoke tests
+   目标：对 `/health`、`/api/v1/chat` 做最小契约测试，并通过 stub state 避免加载大模型。
+2. 固定评测集入库
+   目标：把 `tests/eval_qa_set.json` 作为仓库工件维护，避免每次临时拼样本。
+3. 结构化日志与 trace
+   目标：把 query、召回候选数、rerank 输入输出、图谱命中情况写成可追踪事件。
+4. CI 分层
+   目标：PR 默认跑 `make check`，夜间任务再跑重依赖评估。
+5. 数据契约测试
+   目标：显式校验 chunks 必含字段、页码类型、source/chapter 长度约束。

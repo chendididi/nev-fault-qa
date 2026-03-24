@@ -7,26 +7,20 @@ FastAPI 应用入口
 
 from contextlib import asynccontextmanager
 
-import yaml
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from src.api.routes.chat import router as chat_router
 from src.api.routes.diagnosis import router as diagnosis_router
-
-
-def _load_config() -> dict:
-    """加载 config/config.yaml。"""
-    with open("config/config.yaml", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+from src.config_loader import load_config
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时初始化模型和数据库连接。"""
     logger.info("=== NEV Fault QA System 启动中 ===")
-    cfg = _load_config()
+    cfg = load_config()
     app.state.config = cfg
 
     # 延迟导入（避免启动时加载未安装的依赖）

@@ -14,11 +14,11 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
 from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.config_loader import load_config
 from src.knowledge_graph.entity_extractor import batch_extract_entities
 from src.knowledge_graph.neo4j_client import Neo4jClient
 from src.knowledge_graph.relation_builder import build_graph_from_chunks, create_indexes
@@ -33,8 +33,7 @@ def main():
     args = parser.parse_args()
 
     # 加载配置
-    with open(args.config, encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(args.config)
 
     qwen_cfg = cfg["models"]["qwen_vl"]
     neo4j_cfg = cfg["neo4j"]
