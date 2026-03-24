@@ -78,6 +78,19 @@ class TestBuildGraphSection:
         section = _build_graph_section({"fault_code": "P0300", "components": [], "subsystems": [], "symptoms": []})
         assert section == ""
 
+    def test_with_possible_fault_codes(self):
+        section = _build_graph_section(
+            {
+                "fault_code": "",
+                "components": [],
+                "subsystems": [],
+                "symptoms": ["抖动"],
+                "possible_fault_codes": ["P0300", "U0100"],
+            }
+        )
+        assert "P0300" in section
+        assert "U0100" in section
+
 
 # ─── AnswerGenerator 测试（mock LLM）─────────────────────────────────
 class TestAnswerGenerator:

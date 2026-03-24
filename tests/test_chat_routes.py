@@ -44,6 +44,9 @@ class StubNeo4j:
             "symptoms": ["抖动"],
         }
 
+    def query_symptom_fault_codes(self, keywords: list[str]):
+        return [{"fault_code": "P0300", "symptom": "抖动"}]
+
 
 class StubAnswerGenerator:
     def generate(self, query: str, chunks: list[dict], graph_data: dict | None = None):

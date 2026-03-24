@@ -39,6 +39,7 @@ _GRAPH_INFO_TEMPLATE = """知识图谱信息：
 - 故障码 {fault_code} 相关零部件：{components}
 - 所属子系统：{subsystems}
 - 常见故障现象：{symptoms}
+{possible_fault_codes_line}
 """
 
 
@@ -73,8 +74,9 @@ def _build_graph_section(graph_data: dict | None) -> str:
     subsystems = "、".join(graph_data.get("subsystems", [])) or "无"
     symptoms = "、".join(graph_data.get("symptoms", [])) or "无"
     fault_code = graph_data.get("fault_code", "")
+    possible_fault_codes = graph_data.get("possible_fault_codes", [])
 
-    if not any([graph_data.get("components"), graph_data.get("symptoms")]):
+    if not any([graph_data.get("components"), graph_data.get("symptoms"), possible_fault_codes]):
         return ""
 
     return _GRAPH_INFO_TEMPLATE.format(
@@ -82,6 +84,11 @@ def _build_graph_section(graph_data: dict | None) -> str:
         components=components,
         subsystems=subsystems,
         symptoms=symptoms,
+        possible_fault_codes_line=(
+            f"- 现象匹配到的可能故障码：{'、'.join(possible_fault_codes)}"
+            if possible_fault_codes
+            else ""
+        ),
     )
 
 

@@ -10,6 +10,7 @@ GET /api/v1/chat/history/{session_id}
 """
 
 import json
+import re
 import uuid
 from collections import defaultdict
 
@@ -35,6 +36,34 @@ class ChatResponse(BaseModel):
     sources: list[dict]
 
 
+def _query_graph_data(state, query: str, rewritten_query: str, intent_value: str) -> dict | None:
+    fault_codes = re.findall(r"[PBCU]\d{4}", f"{query} {rewritten_query}", re.IGNORECASE)
+    if fault_codes:
+        return state.neo4j.query_fault_code(fault_codes[0].upper())
+
+    if intent_value == "symptom":
+        keywords = [token for token in re.split(r"[\s,，。；;、]+", rewritten_query) if token]
+        if not keywords:
+            return None
+        graph_results = state.neo4j.query_symptom_fault_codes(keywords[:6])
+        possible_codes = list(dict.fromkeys(
+            result["fault_code"] for result in graph_results if result.get("fault_code")
+        ))[:5]
+        symptoms = list(dict.fromkeys(
+            result["symptom"] for result in graph_results if result.get("symptom")
+        ))[:5]
+        if possible_codes or symptoms:
+            return {
+                "fault_code": possible_codes[0] if possible_codes else "",
+                "possible_fault_codes": possible_codes,
+                "symptoms": symptoms,
+                "components": [],
+                "subsystems": [],
+            }
+
+    return None
+
+
 async def _rag_pipeline(request: Request, query: str) -> tuple[str, list[dict]]:
     """
     执行完整 RAG 流水线，返回 (answer, sources)。
@@ -45,7 +74,8 @@ async def _rag_pipeline(request: Request, query: str) -> tuple[str, list[dict]]:
 
     # 1. Query 预处理
     rewritten_query, intent = state.query_processor.process(query)
-    logger.info(f"意图: {intent}, 改写后: {rewritten_query!r}")
+    intent_value = getattr(intent, "value", str(intent))
+    logger.bind(intent=intent_value, rewritten_query=rewritten_query).info("query_processed")
 
     # 2. 混合检索
     retrieval_cfg = state.config["retrieval"]
@@ -61,12 +91,14 @@ async def _rag_pipeline(request: Request, query: str) -> tuple[str, list[dict]]:
         top_k=retrieval_cfg["rerank_output_k"],
     )
 
-    # 4. 知识图谱查询（仅故障码意图）
-    import re
-    graph_data = None
-    fault_codes = re.findall(r"[PBCU]\d{4}", query, re.IGNORECASE)
-    if fault_codes:
-        graph_data = state.neo4j.query_fault_code(fault_codes[0].upper())
+    # 4. 知识图谱查询
+    graph_data = _query_graph_data(state, query, rewritten_query, intent_value)
+    logger.bind(
+        intent=intent_value,
+        candidate_count=len(candidates),
+        rerank_count=len(top_chunks),
+        graph_hit=bool(graph_data),
+    ).info("rag_pipeline_completed")
 
     return top_chunks, graph_data
 
