@@ -13,12 +13,15 @@
 - `python scripts/download_official_docs.py`
   - 默认下载官方 PDF
   - Tesla 官方 service manual 的 HTML 入口会保存在 manifest 中，按需可用 `--include-html` 抓取入口页快照
+- `python scripts/fetch_tesla_service_manual.py --manual model3_2024_en_us`
+  - 从本地 seed HTML 提取 Tesla service manual 链接，并抓取同站 HTML 页面到本地目录
 
 ## 数据源边界
 
 - `Tesla`
   - 公开可访问的 service manual 主要是 HTML 站点
   - 可直接下载的 PDF 主要是 Service Mode Guide 和 Owner's Manual
+  - 当前仓库已经支持 `HTML -> chunks`，可以直接把抓下来的 HTML 页面送进 `build_index.py`
 - `BYD`
   - 当前公开可拿到的主要是 Owner's Manual / 安全资料
   - 这些资料适合作为维护、告警、故障现象补充语料，不应伪装成维修手册

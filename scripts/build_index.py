@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config_loader import load_config
 from src.data_processing.chunk_contract import validate_chunks
 from src.data_processing.circuit_ocr import extract_circuit_descriptions
+from src.data_processing.html_manual_parser import parse_html_dir, parse_html_file
 from src.data_processing.pdf_parser import parse_pdf, parse_pdf_dir
 from src.data_processing.table_extractor import extract_tables
 from src.ops.artifact_store import ArtifactStore
@@ -82,6 +83,10 @@ def load_input_chunks(
             raise ValueError(f"样例数据格式错误，预期为 JSON 数组: {input_path}")
         return chunks
 
+    if input_path.is_file() and input_path.suffix.lower() == ".html":
+        logger.info(f"检测到单个 HTML 手册页面: {input_path}")
+        return parse_html_file(input_path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
     pdfs = list(input_path.glob("*.pdf")) if input_path.is_dir() else []
     if pdfs:
         logger.info(f"检测到 {len(pdfs)} 个 PDF 文件，走 PDF 解析链路")
@@ -112,6 +117,11 @@ def load_input_chunks(
                 )
 
         return chunks
+
+    html_files = list(input_path.glob("*.html")) if input_path.is_dir() else []
+    if html_files:
+        logger.info(f"检测到 {len(html_files)} 个 HTML 文件，走 HTML 手册解析链路")
+        return parse_html_dir(input_path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     if input_path.is_dir():
         for candidate_name in ("sample_chunks.json", "chunks.json"):
