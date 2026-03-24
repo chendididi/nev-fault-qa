@@ -26,20 +26,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-def download_bge_models():
-    """下载 BGE 嵌入模型和重排序模型（通过 HuggingFace / 镜像自动下载）。"""
+def _snapshot_download(repo_id: str, local_dir: str):
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(
+        repo_id=repo_id,
+        local_dir=local_dir,
+        local_dir_use_symlinks=False,
+    )
+
+
+def download_bge_models(embedding_dir: str, reranker_dir: str):
+    """下载 BGE 嵌入模型和重排序模型到本地目录。"""
     print("\n" + "=" * 50)
     print("下载 BGE 嵌入模型：BAAI/bge-base-zh-v1.5（约 400MB）")
+    print(f"目标目录：{embedding_dir}")
     print("=" * 50)
-    from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer("BAAI/bge-base-zh-v1.5")
+    _snapshot_download("BAAI/bge-base-zh-v1.5", embedding_dir)
     print("✅ BGE 嵌入模型下载完成")
 
     print("\n" + "=" * 50)
     print("下载 BGE 重排序模型：BAAI/bge-reranker-v2-m3（约 1.1GB）")
+    print(f"目标目录：{reranker_dir}")
     print("=" * 50)
-    from sentence_transformers import CrossEncoder
-    model = CrossEncoder("BAAI/bge-reranker-v2-m3")
+    _snapshot_download("BAAI/bge-reranker-v2-m3", reranker_dir)
     print("✅ BGE 重排序模型下载完成")
 
 
@@ -83,13 +93,23 @@ def main():
         action="store_true",
         help="跳过 BGE 模型下载",
     )
+    parser.add_argument(
+        "--embedding-dir",
+        default="/root/ubuntuchen_file/nev-fault-qa/models/bge-base-zh-v1.5",
+        help="BGE 嵌入模型本地目录",
+    )
+    parser.add_argument(
+        "--reranker-dir",
+        default="/root/ubuntuchen_file/nev-fault-qa/models/bge-reranker-v2-m3",
+        help="BGE 重排序模型本地目录",
+    )
     args = parser.parse_args()
 
     print("NEV Fault QA — 模型下载脚本")
     print(f"HF_ENDPOINT: {os.environ.get('HF_ENDPOINT', '未设置（建议设置镜像）')}")
 
     if not args.skip_bge:
-        download_bge_models()
+        download_bge_models(args.embedding_dir, args.reranker_dir)
 
     if args.qwen:
         download_qwen(args.qwen_dir)
