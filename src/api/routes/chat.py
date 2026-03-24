@@ -9,13 +9,11 @@ GET /api/v1/chat/history/{session_id}
   - 获取对话历史（内存存储，重启后清空）
 """
 
-import asyncio
 import json
 import uuid
 from collections import defaultdict
 
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -83,10 +81,6 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
 
     async def event_generator():
         try:
-            top_chunks, graph_data = await asyncio.to_thread(
-                _rag_pipeline.__wrapped__ if hasattr(_rag_pipeline, "__wrapped__") else lambda: None
-            )
-            # 由于 _rag_pipeline 是 async，直接 await
             top_chunks, graph_data = await _rag_pipeline(request, query)
         except Exception as e:
             logger.error(f"RAG 流水线错误: {e}")
@@ -107,7 +101,12 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
 
         # 发送最终 sources
         sources = request.app.state.answer_generator.format_sources(top_chunks)
-        yield {"data": json.dumps({"done": True, "sources": sources}, ensure_ascii=False)}
+        yield {
+            "data": json.dumps(
+                {"done": True, "sources": sources, "session_id": session_id},
+                ensure_ascii=False,
+            )
+        }
 
         # 存储对话历史
         _sessions[session_id].append({"role": "user", "content": query})

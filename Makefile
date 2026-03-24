@@ -5,7 +5,7 @@ HOST ?= 0.0.0.0
 PORT ?= 8000
 QA_FILE ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-architecture test-build-index infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-architecture test-build-index infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health
 
 help:
 	@printf "Available targets:\n"
@@ -25,13 +25,16 @@ test-retrieval:
 test-generation:
 	$(PYTEST) tests/test_generation.py -q
 
+test-chat-routes:
+	$(PYTEST) tests/test_chat_routes.py -q
+
 test-architecture:
 	$(PYTEST) tests/test_architecture.py -q
 
 test-build-index:
 	$(PYTEST) tests/test_build_index.py -q
 
-test-unit: test-retrieval test-generation test-architecture test-build-index
+test-unit: test-retrieval test-generation test-chat-routes test-architecture test-build-index
 
 check: compile test-unit
 
