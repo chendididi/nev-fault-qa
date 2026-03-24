@@ -4,8 +4,10 @@ UVICORN ?= uvicorn
 HOST ?= 0.0.0.0
 PORT ?= 8000
 QA_FILE ?=
+PIPELINE ?= build_index
+RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-architecture test-build-index infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -15,6 +17,8 @@ help:
 	@printf "  make run-api                # run FastAPI app\n"
 	@printf "  make run-frontend           # run Streamlit MVP\n"
 	@printf "  make eval-ragas             # run RAGAS against a running API\n"
+	@printf "  make health-ready           # check readiness endpoint\n"
+	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
 	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
 	@printf "  make codex-resume           # resume last Codex session inside tmux\n"
 
@@ -30,13 +34,19 @@ test-generation:
 test-chat-routes:
 	$(PYTEST) tests/test_chat_routes.py -q
 
+test-health:
+	$(PYTEST) tests/test_health_routes.py -q
+
 test-architecture:
 	$(PYTEST) tests/test_architecture.py -q
 
 test-build-index:
 	$(PYTEST) tests/test_build_index.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-architecture test-build-index
+test-run-manifest:
+	$(PYTEST) tests/test_run_manifest.py -q
+
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest
 
 check: compile test-unit
 
@@ -72,6 +82,16 @@ endif
 
 health:
 	curl http://localhost:$(PORT)/health
+
+health-ready:
+	curl http://localhost:$(PORT)/ready
+
+rollback-artifact:
+ifeq ($(strip $(RUN_ID)),)
+	$(PYTHON) scripts/rollback_artifact.py --pipeline $(PIPELINE) --previous
+else
+	$(PYTHON) scripts/rollback_artifact.py --pipeline $(PIPELINE) --run-id $(RUN_ID)
+endif
 
 codex-tmux:
 	./scripts/start_codex_tmux.sh

@@ -5,8 +5,16 @@
 ## 先读什么
 
 1. `docs/README.md`：按任务找文档入口
-2. `docs/repo-map.md`：模块边界、允许依赖方向、改动落点
-3. `docs/harness.md`：验证层级、常用命令、失败排查
+2. `docs/codex-standards.md`：本仓库采用的 Codex 工作标准
+3. `docs/repo-map.md`：模块边界、允许依赖方向、改动落点
+4. `docs/harness.md`：验证层级、常用命令、失败排查
+
+## 外部标准基线
+
+- 本仓库默认遵循 OpenAI Codex 官方文章：
+  - `Best practices`：<https://developers.openai.com/codex/learn/best-practices>
+  - `Harness engineering: Leveraging Codex in an agent-first world`：<https://openai.com/index/harness-engineering/>
+- 不依赖聊天记忆来维持这些规则；以 `docs/codex-standards.md` 的项目内落地版本为准。
 
 ## 这个仓库的真实执行入口
 

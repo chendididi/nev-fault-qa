@@ -18,6 +18,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config_loader import load_config
 from src.data_processing.pdf_parser import parse_pdf_dir
+from src.ops.artifact_store import ArtifactStore
+from src.ops.logging_setup import log_context, setup_logging
+from src.ops.run_manifest import RunRecorder
 
 
 def load_input_chunks(
@@ -59,10 +62,25 @@ def main():
 
     # 加载配置
     cfg = load_config(args.config)
+    artifacts_root = cfg.get("ops", {}).get("artifacts_root", "data/artifacts")
+    run = RunRecorder.start(
+        pipeline="build_index",
+        artifacts_root=artifacts_root,
+        config=cfg,
+        config_path=args.config,
+        inputs={
+            "input_dir": str(args.input),
+            "skip_embedding": args.skip_embedding,
+        },
+    )
+    setup_logging(cfg, component="build_index", run_log_path=run.run_dir / "run.log")
+    store = ArtifactStore(artifacts_root)
 
     input_dir = Path(args.input)
     if not input_dir.exists():
-        logger.error(f"输入目录不存在: {input_dir}")
+        message = f"输入目录不存在: {input_dir}"
+        logger.error(message)
+        run.mark_failure(message)
         sys.exit(1)
 
     proc_cfg = cfg["data_processing"]
@@ -70,52 +88,69 @@ def main():
     milvus_cfg = cfg["milvus"]
 
     # ─── Step 1: PDF 解析 ────────────────────────────────────────────
-    logger.info(f"Step 1/3: 从 {input_dir} 加载 chunks")
     try:
-        chunks = load_input_chunks(
-            input_dir,
-            chunk_size=proc_cfg["chunk_size"],
-            chunk_overlap=proc_cfg["chunk_overlap"],
-        )
-    except ValueError as exc:
-        logger.error(str(exc))
+        with log_context(run_id=run.run_id, pipeline="build_index"):
+            logger.info(f"Step 1/3: 从 {input_dir} 加载 chunks")
+            chunks = load_input_chunks(
+                input_dir,
+                chunk_size=proc_cfg["chunk_size"],
+                chunk_overlap=proc_cfg["chunk_overlap"],
+            )
+            if not chunks:
+                raise ValueError(f"未加载到任何文本块，请检查输入目录: {input_dir}")
+
+            logger.info(f"共加载 {len(chunks)} 个文本块")
+            run.update_stats(chunk_count=len(chunks))
+
+            # ─── Step 2: 保存 chunks JSON（BM25 索引源）────────────────
+            logger.info("Step 2/3: 保存 chunks.json（用于 BM25 索引）")
+            output = store.stage_json(
+                pipeline="build_index",
+                run_id=run.run_id,
+                artifact_name="chunks.json",
+                payload=chunks,
+                active_path="data/processed/chunks.json",
+            )
+            run.add_output(output)
+            logger.info(f"chunks.json 已保存: {output['artifact_path']}")
+
+            if args.skip_embedding:
+                run.note("跳过了 Milvus 索引构建")
+                run.update_stats(embedding_built=False)
+                store.activate(
+                    pipeline="build_index",
+                    run_id=run.run_id,
+                    outputs=run.data["outputs"],
+                )
+                logger.info("已跳过 Milvus 索引构建")
+                run.mark_success()
+                return
+
+            # ─── Step 3: 构建 Milvus 向量索引 ────────────────────────
+            logger.info("Step 3/3: 构建 Milvus 向量索引")
+            from src.retrieval.embedding_retriever import EmbeddingRetriever
+
+            retriever = EmbeddingRetriever(
+                model_name=emb_cfg["model_name"],
+                milvus_host=milvus_cfg["host"],
+                milvus_port=milvus_cfg["port"],
+                collection_name=milvus_cfg["collection_name"],
+                dim=milvus_cfg["dim"],
+                device=emb_cfg["device"],
+            )
+            retriever.insert(chunks, batch_size=256)
+            run.update_stats(embedding_built=True)
+            store.activate(
+                pipeline="build_index",
+                run_id=run.run_id,
+                outputs=run.data["outputs"],
+            )
+            logger.info("向量索引构建完成！")
+            run.mark_success()
+    except Exception as exc:
+        logger.exception("build_index_failed")
+        run.mark_failure(str(exc))
         sys.exit(1)
-
-    if not chunks:
-        logger.error(f"未加载到任何文本块，请检查输入目录: {input_dir}")
-        sys.exit(1)
-
-    logger.info(f"共加载 {len(chunks)} 个文本块")
-
-    # ─── Step 2: 保存 chunks JSON（BM25 索引源）────────────────────
-    logger.info("Step 2/3: 保存 chunks.json（用于 BM25 索引）")
-    output_dir = Path("data/processed")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    chunks_file = output_dir / "chunks.json"
-    chunks_file.write_text(
-        json.dumps(chunks, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    logger.info(f"chunks.json 已保存: {chunks_file}")
-
-    if args.skip_embedding:
-        logger.info("已跳过 Milvus 索引构建")
-        return
-
-    # ─── Step 3: 构建 Milvus 向量索引 ────────────────────────────────
-    logger.info("Step 3/3: 构建 Milvus 向量索引")
-    from src.retrieval.embedding_retriever import EmbeddingRetriever
-
-    retriever = EmbeddingRetriever(
-        model_name=emb_cfg["model_name"],
-        milvus_host=milvus_cfg["host"],
-        milvus_port=milvus_cfg["port"],
-        collection_name=milvus_cfg["collection_name"],
-        dim=milvus_cfg["dim"],
-        device=emb_cfg["device"],
-    )
-    retriever.insert(chunks, batch_size=256)
-    logger.info("向量索引构建完成！")
 
 
 if __name__ == "__main__":

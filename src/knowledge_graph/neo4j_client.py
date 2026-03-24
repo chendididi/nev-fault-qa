@@ -120,6 +120,14 @@ class Neo4jClient:
         results = self.run(query)
         return {r["label"]: r["cnt"] for r in results if r["label"]}
 
+    def ping(self) -> bool:
+        """轻量连接检查，用于 readiness。"""
+        try:
+            result = self.run("RETURN 1 AS ok")
+        except Exception:
+            return False
+        return bool(result and result[0].get("ok") == 1)
+
     def __enter__(self):
         return self
 

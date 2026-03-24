@@ -6,22 +6,28 @@ FastAPI 应用入口
 """
 
 from contextlib import asynccontextmanager
+from time import perf_counter
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from src.api.health import router as health_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.diagnosis import router as diagnosis_router
 from src.config_loader import load_config
+from src.ops.logging_setup import log_context, setup_logging
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时初始化模型和数据库连接。"""
-    logger.info("=== NEV Fault QA System 启动中 ===")
     cfg = load_config()
+    setup_logging(cfg, component="api")
     app.state.config = cfg
+    app.state.chunks_file_path = "data/processed/chunks.json"
+    logger.info("=== NEV Fault QA System 启动中 ===")
 
     # 延迟导入（避免启动时加载未安装的依赖）
     from src.llm.qwen_client import QwenClient
@@ -101,27 +107,54 @@ async def lifespan(app: FastAPI):
     logger.info("=== 服务已停止 ===")
 
 
-app = FastAPI(
-    title="新能源汽车故障诊断智能问答系统",
-    description="Advanced RAG + 知识图谱融合的 NEV 故障诊断 API",
-    version="0.1.0",
-    lifespan=lifespan,
-)
+def create_app(lifespan_handler=lifespan) -> FastAPI:
+    app = FastAPI(
+        title="新能源汽车故障诊断智能问答系统",
+        description="Advanced RAG + 知识图谱融合的 NEV 故障诊断 API",
+        version="0.1.0",
+        lifespan=lifespan_handler,
+    )
 
-# CORS（允许 Streamlit / Vue3 跨域）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    # CORS（允许 Streamlit / Vue3 跨域）
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.include_router(chat_router, prefix="/api/v1", tags=["对话"])
-app.include_router(diagnosis_router, prefix="/api/v1", tags=["故障诊断"])
+    @app.middleware("http")
+    async def request_logging_middleware(request, call_next):
+        request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        request.state.request_id = request_id
+
+        with log_context(
+            component="api",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+        ):
+            started_at = perf_counter()
+            try:
+                response = await call_next(request)
+            except Exception:
+                logger.exception("request_failed")
+                raise
+
+            latency_ms = int((perf_counter() - started_at) * 1000)
+            logger.bind(
+                session_id=getattr(request.state, "session_id", None),
+                status_code=response.status_code,
+                latency_ms=latency_ms,
+            ).info("request_completed")
+            response.headers["X-Request-ID"] = request_id
+            return response
+
+    app.include_router(health_router)
+    app.include_router(chat_router, prefix="/api/v1", tags=["对话"])
+    app.include_router(diagnosis_router, prefix="/api/v1", tags=["故障诊断"])
+    return app
 
 
-@app.get("/health")
-async def health_check():
-    """健康检查接口。"""
-    return {"status": "ok", "version": "0.1.0"}
+app = create_app()

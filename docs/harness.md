@@ -6,12 +6,16 @@
 
 - `make check`
   编译检查 + 轻量单测 + 结构边界测试，不依赖 GPU、Milvus、Neo4j。
+- `make health-ready`
+  检查运行中 API 的 `/ready`，确认 BM25、Milvus、Neo4j、Qwen 和 chunks 文件是否齐备。
 - `python scripts/build_index.py --input data/sample/ --skip-embedding`
-  用内置示例数据生成 `data/processed/chunks.json`，验证离线 BM25 数据链路。
+  用内置示例数据生成 `data/processed/chunks.json`，并把本次运行落盘到版本化产物目录。
 - `python scripts/load_embeddings.py --input data/sample/sample_chunks.json`
-  把现成 chunks JSON 导入 Milvus，验证向量索引入口。
+  把现成 chunks JSON 导入 Milvus，并记录运行 manifest。
 - `python scripts/build_graph.py --chunks-file data/processed/chunks.json`
-  验证实体抽取和 Neo4j 写入链路。
+  验证实体抽取和 Neo4j 写入链路，并保存版本化 `chunks_with_entities.json`。
+- `python scripts/rollback_artifact.py --pipeline build_index --previous`
+  回滚 `build_index` 或 `build_graph` 的文件产物到上一个激活版本。
 - `python tests/eval_ragas.py`
   对运行中的 API 做质量评估，默认使用内置评估集。
 
@@ -30,6 +34,8 @@ make check
 - Python 文件可编译
 - 检索 / 生成相关轻量逻辑仍可用
 - 模块边界没有被破坏
+- `/health` 和 `/ready` 的最小契约可用
+- run manifest / 版本化产物逻辑可用
 
 ### Level 1: 离线数据链路
 
@@ -85,6 +91,20 @@ make help
 
 推荐优先使用 Make 目标，而不是把长命令散落在聊天记录或 README 片段里。
 
+## 运行证据与回滚
+
+- 离线脚本现在会把每次运行写到 `data/artifacts/<pipeline>/<run_id>/`
+- 每次运行至少包含：
+  - `manifest.json`
+  - `config.snapshot.json`
+  - `run.log`
+- `build_index` 和 `build_graph` 会维护 `data/artifacts/<pipeline>/current.json`
+- 当前稳定路径仍保留：
+  - `data/processed/chunks.json`
+  - `data/processed/chunks_with_entities.json`
+- 这些稳定路径不再是“唯一产物”，而是当前激活版本的同步副本
+- 第一阶段回滚只覆盖文件产物，不覆盖 Milvus / Neo4j 的深度回滚
+
 ## 失败排查
 
 - `make check` 失败
@@ -102,13 +122,13 @@ make help
 
 这是下一批优先级最高的改造项：
 
-1. API 级 smoke tests
-   目标：对 `/health`、`/api/v1/chat` 做最小契约测试，并通过 stub state 避免加载大模型。
-2. 固定评测集入库
+1. 固定评测集入库
    目标：把 `tests/eval_qa_set.json` 作为仓库工件维护，避免每次临时拼样本。
-3. 结构化日志与 trace
-   目标：把 query、召回候选数、rerank 输入输出、图谱命中情况写成可追踪事件。
-4. CI 分层
+2. 端到端 trace 深化
+   目标：把 query、召回候选数、rerank 输入输出、图谱命中情况写成更完整的可追踪事件。
+3. CI 分层
    目标：PR 默认跑 `make check`，夜间任务再跑重依赖评估。
-5. 数据契约测试
+4. 数据契约测试
    目标：显式校验 chunks 必含字段、页码类型、source/chapter 长度约束。
+5. 外部服务回滚
+   目标：为 Milvus / Neo4j 引入版本化导入和可执行恢复流程，而不只回滚本地文件产物。

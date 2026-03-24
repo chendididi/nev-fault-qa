@@ -5,14 +5,16 @@
 ## 阅读顺序
 
 1. `../AGENTS.md`
-2. `repo-map.md`
-3. `harness.md`
-4. `architecture.md`
+2. `codex-standards.md`
+3. `repo-map.md`
+4. `harness.md`
+5. `architecture.md`
 
 ## 按任务找文档
 
 - 想知道代码应该改哪里：看 `repo-map.md`
 - 想知道先跑什么、怎么验证、失败后怎么查：看 `harness.md`
+- 想知道这个仓库默认按什么 agent 标准执行：看 `codex-standards.md`
 - 想理解整体链路和运行时组件：看 `architecture.md`
 
 ## 文档职责
@@ -21,6 +23,8 @@
   仓库级入口，给 agent 和维护者最短执行路径。
 - `repo-map.md`
   说明模块边界、允许依赖方向、常见改动的落点。
+- `codex-standards.md`
+  说明本仓库采用的 Codex / harness engineering 工作标准。
 - `harness.md`
   说明本仓库当前可用的验证 harness、命令入口、证据要求和后续改造优先级。
 - `architecture.md`

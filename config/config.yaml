@@ -78,3 +78,8 @@ logging:
   level: "INFO"             # DEBUG / INFO / WARNING / ERROR
   file: "logs/nev_qa.log"
   rotation: "10 MB"
+  file_json: true
+
+# ─── 运行与产物 ────────────────────────────────────────────────────────
+ops:
+  artifacts_root: "data/artifacts"

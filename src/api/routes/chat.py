@@ -77,7 +77,9 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
     SSE 流式对话接口。
     """
     session_id = chat_req.session_id or str(uuid.uuid4())
+    request.state.session_id = session_id
     query = chat_req.message
+    request_logger = logger.bind(session_id=session_id, route="/api/v1/chat/stream")
 
     async def event_generator():
         try:
@@ -101,6 +103,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
 
         # 发送最终 sources
         sources = request.app.state.answer_generator.format_sources(top_chunks)
+        request_logger.bind(source_count=len(sources)).info("chat_stream_completed")
         yield {
             "data": json.dumps(
                 {"done": True, "sources": sources, "session_id": session_id},
@@ -121,7 +124,9 @@ async def chat(chat_req: ChatRequest, request: Request):
     非流式对话接口（兼容性备用）。
     """
     session_id = chat_req.session_id or str(uuid.uuid4())
+    request.state.session_id = session_id
     query = chat_req.message
+    request_logger = logger.bind(session_id=session_id, route="/api/v1/chat")
 
     top_chunks, graph_data = await _rag_pipeline(request, query)
 
@@ -134,6 +139,7 @@ async def chat(chat_req: ChatRequest, request: Request):
 
     _sessions[session_id].append({"role": "user", "content": query})
     _sessions[session_id].append({"role": "assistant", "content": answer})
+    request_logger.bind(source_count=len(sources)).info("chat_completed")
 
     return ChatResponse(session_id=session_id, answer=answer, sources=sources)
 

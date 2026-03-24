@@ -168,3 +168,10 @@ class EmbeddingRetriever:
             hits.append(chunk)
 
         return hits
+
+    def ping(self) -> bool:
+        """轻量连接检查，用于 readiness。"""
+        try:
+            return self._collection is not None and utility.has_collection(self._collection_name)
+        except Exception:
+            return False

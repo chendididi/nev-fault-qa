@@ -45,3 +45,4 @@ volumes/
 
 # 生成产物
 data/processed/
+data/artifacts/

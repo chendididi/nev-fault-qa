@@ -40,10 +40,11 @@ async def diagnose_by_fault_code(req: FaultCodeRequest, request: Request):
     """
     state = request.app.state
     fc = req.fault_code.upper().strip()
+    request_logger = logger.bind(route="/api/v1/diagnosis/fault-code", fault_code=fc)
 
     # 知识图谱查询
     graph_data = state.neo4j.query_fault_code(fc)
-    logger.info(f"故障码 {fc} 图谱查询结果: {graph_data}")
+    request_logger.bind(graph_components=len(graph_data.get("components", []))).info("fault_code_graph_loaded")
 
     # RAG 检索
     query = f"故障码 {fc} 的含义、原因和处理方法"
@@ -57,6 +58,7 @@ async def diagnose_by_fault_code(req: FaultCodeRequest, request: Request):
         graph_data=graph_data,
     )
     sources = state.answer_generator.format_sources(top_chunks)
+    request_logger.bind(source_count=len(sources)).info("fault_code_diagnosis_completed")
 
     return DiagnosisResult(
         fault_code=fc,
@@ -80,12 +82,13 @@ async def diagnose_by_symptom(req: SymptomRequest, request: Request):
     按故障现象查询：知识图谱推断可能故障码 + RAG 排查建议。
     """
     state = request.app.state
+    request_logger = logger.bind(route="/api/v1/diagnosis/symptom")
 
     # 知识图谱：从故障现象推断可能故障码
     keywords = req.symptom.split()
     graph_results = state.neo4j.query_symptom_fault_codes(keywords)
     possible_codes = list({r["fault_code"] for r in graph_results})[:req.top_k]
-    logger.info(f"现象 '{req.symptom}' → 可能故障码: {possible_codes}")
+    request_logger.bind(possible_fault_codes=possible_codes).info("symptom_graph_loaded")
 
     # RAG 检索
     rewritten, _ = state.query_processor.process(req.symptom)
@@ -98,6 +101,7 @@ async def diagnose_by_symptom(req: SymptomRequest, request: Request):
         chunks=top_chunks,
     )
     sources = state.answer_generator.format_sources(top_chunks)
+    request_logger.bind(source_count=len(sources)).info("symptom_diagnosis_completed")
 
     return SymptomResult(
         possible_fault_codes=possible_codes,
