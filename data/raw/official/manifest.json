@@ -19,6 +19,7 @@
       "kind": "owners_manual",
       "format": "pdf",
       "official": true,
+      "required": false,
       "url": "https://www.tesla.com/ownersmanual/model3/en_us/Owners_Manual.pdf",
       "target_path": "data/raw/official/tesla/tesla_model3_owners_manual.pdf"
     },

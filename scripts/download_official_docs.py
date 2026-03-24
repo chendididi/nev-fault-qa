@@ -130,7 +130,13 @@ def main():
                     results.append(result)
                     logger.info(f"{result['status']}: {entry['id']} -> {result['target_path']}")
                 except (HTTPError, URLError, TimeoutError, OSError) as exc:
-                    failures.append({"id": entry["id"], "error": str(exc)})
+                    failures.append(
+                        {
+                            "id": entry["id"],
+                            "error": str(exc),
+                            "required": entry.get("required", True),
+                        }
+                    )
                     logger.warning(f"下载失败 {entry['id']}: {exc}")
 
             result_path = run.run_dir / "download_results.json"
@@ -153,12 +159,20 @@ def main():
                     "activate_on_publish": False,
                 }
             )
-            run.update_stats(downloaded=len(results), failed=len(failures))
+            required_failures = [item for item in failures if item.get("required", True)]
+            run.update_stats(
+                downloaded=len(results),
+                failed=len(failures),
+                required_failed=len(required_failures),
+            )
 
-        if failures and not args.dry_run:
-            run.mark_failure(f"{len(failures)} 个文档下载失败")
+        required_failures = [item for item in failures if item.get("required", True)]
+        if required_failures and not args.dry_run:
+            run.mark_failure(f"{len(required_failures)} 个必需文档下载失败")
             sys.exit(1)
 
+        if failures:
+            run.note(f"存在 {len(failures)} 个非阻塞下载失败，请查看 download_results.json")
         run.mark_success()
     except Exception as exc:
         logger.exception("download_official_docs_failed")
