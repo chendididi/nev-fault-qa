@@ -7,6 +7,15 @@
 
 ---
 
+## Agent-First 入口
+
+- `AGENTS.md`：仓库级执行入口和硬约束
+- `docs/README.md`：任务导向文档索引
+- `docs/harness.md`：验证分层、命令入口、失败排查
+- `make help`：统一命令入口
+
+---
+
 ## 目录
 
 1. [系统架构](#系统架构)
@@ -112,25 +121,16 @@ curl http://localhost:9091/healthz
 
 ### 第三步：准备示例数据
 
-将示例数据复制到 `data/processed/`（供 BM25 索引使用）：
+生成 BM25 用的 `chunks.json`：
 
 ```bash
-cp data/sample/sample_chunks.json data/processed/chunks.json
+python scripts/build_index.py --input data/sample/ --skip-embedding
 ```
 
 将示例数据导入 Milvus（向量索引）：
 
 ```bash
-python - <<'EOF'
-import json, sys
-sys.path.insert(0, ".")
-from src.retrieval.embedding_retriever import EmbeddingRetriever
-
-chunks = json.loads(open("data/sample/sample_chunks.json", encoding="utf-8").read())
-retriever = EmbeddingRetriever(device="cuda:0")  # 无 GPU 改为 device="cpu"
-retriever.insert(chunks)
-print(f"已导入 {len(chunks)} 条示例数据到 Milvus")
-EOF
+python scripts/load_embeddings.py --input data/sample/sample_chunks.json
 ```
 
 ### 第四步：下载模型

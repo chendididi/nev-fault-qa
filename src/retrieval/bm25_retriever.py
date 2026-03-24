@@ -7,7 +7,6 @@ BM25 精确检索器
 """
 
 import re
-from pathlib import Path
 
 import jieba
 from loguru import logger
@@ -18,26 +17,25 @@ def _tokenize(text: str) -> list[str]:
     """
     中文分词 + 保留故障码（P/B/C/U + 4位数字）不被分割。
 
-    故障码先用占位符保护，分词后还原。
+    按故障码位置切分文本，普通片段走 jieba，故障码原样保留。
     """
-    # 保护故障码
     fault_code_pattern = re.compile(r"[PBCU]\d{4}", re.IGNORECASE)
-    codes = fault_code_pattern.findall(text)
-    protected = text
-    for i, code in enumerate(codes):
-        protected = protected.replace(code, f"__FC{i}__")
+    tokens: list[str] = []
+    last_end = 0
 
-    # 结巴分词
-    tokens = list(jieba.cut(protected))
+    for match in fault_code_pattern.finditer(text):
+        prefix = text[last_end:match.start()]
+        if prefix:
+            tokens.extend(token for token in jieba.cut(prefix) if token.strip())
 
-    # 还原故障码
-    result = []
-    for token in tokens:
-        for i, code in enumerate(codes):
-            token = token.replace(f"__FC{i}__", code.upper())
-        result.append(token)
+        tokens.append(match.group(0).upper())
+        last_end = match.end()
 
-    return [t for t in result if t.strip()]
+    suffix = text[last_end:]
+    if suffix:
+        tokens.extend(token for token in jieba.cut(suffix) if token.strip())
+
+    return tokens
 
 
 class BM25Retriever:
