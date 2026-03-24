@@ -5,7 +5,7 @@ HOST ?= 0.0.0.0
 PORT ?= 8000
 QA_FILE ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-architecture test-build-index infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-architecture test-build-index infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -15,6 +15,8 @@ help:
 	@printf "  make run-api                # run FastAPI app\n"
 	@printf "  make run-frontend           # run Streamlit MVP\n"
 	@printf "  make eval-ragas             # run RAGAS against a running API\n"
+	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
+	@printf "  make codex-resume           # resume last Codex session inside tmux\n"
 
 compile:
 	$(PYTHON) -m compileall src scripts tests
@@ -70,3 +72,9 @@ endif
 
 health:
 	curl http://localhost:$(PORT)/health
+
+codex-tmux:
+	./scripts/start_codex_tmux.sh
+
+codex-resume:
+	./scripts/start_codex_tmux.sh resume
