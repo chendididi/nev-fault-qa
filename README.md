@@ -137,7 +137,7 @@ python scripts/download_official_docs.py
 
 - 文档清单在 `data/raw/official/manifest.json`
 - 下载文件只落本地，不进 git
-- Tesla 官方维修手册主体是 HTML 站点，当前会保存入口页快照；真正纳入索引还需要后续 HTML ingestion
+- Tesla 官方维修手册主体是 HTML 站点；抓下来的 HTML 页面现在可以直接被 `build_index.py` 纳入索引
 
 将示例数据导入 Milvus（向量索引）：
 
@@ -208,17 +208,17 @@ models:
 
 ## 完整部署（真实手册）
 
-### 第一步：放入 PDF 手册
+### 第一步：准备手册数据
 
 ```bash
-# 将维修手册 PDF 放入 data/raw/ 目录
+# 将维修手册 PDF / HTML / 预构建 chunks JSON 放入 data/raw/ 或其子目录
 cp /path/to/your/manual.pdf data/raw/
 ```
 
-### 第二步：解析 PDF 并构建向量索引
+### 第二步：解析资料并构建向量索引
 
 ```bash
-# 解析 PDF + 存入 Milvus（约需 10-30 分钟，取决于文件大小）
+# 递归解析目录中的 PDF / HTML / chunks JSON，并存入 Milvus
 python scripts/build_index.py --input data/raw/
 
 # 如需跳过 Milvus，仅生成 chunks.json（可只用 BM25 检索）
@@ -525,7 +525,7 @@ nev-fault-qa/
 所有模块代码已实现，git 仓库已初始化。
 
 ### ⏳ 阶段二：数据工程（待开始）
-- [ ] 将官方 PDF 放入 `data/raw/`
+- [ ] 将官方资料放入 `data/raw/`
 - [ ] 验证 `pdf_parser.py` 分块效果
 - [ ] 验证 `table_extractor.py` 故障码表提取
 - [ ] 运行 `python scripts/build_index.py --input data/raw/`

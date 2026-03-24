@@ -10,6 +10,8 @@
   检查运行中 API 的 `/ready`，确认 BM25、Milvus、Neo4j、Qwen 和 chunks 文件是否齐备。
 - `python scripts/build_index.py --input data/sample/ --skip-embedding`
   用内置示例数据生成 `data/processed/chunks.json`，并把本次运行落盘到版本化产物目录。
+- `python scripts/build_index.py --input data/raw/official --skip-embedding`
+  递归摄取官方资料目录中的 PDF、Tesla HTML 和预构建 chunks JSON，并在 run manifest 中记录发现统计与跳过原因。
 - `python scripts/load_embeddings.py --input data/sample/sample_chunks.json`
   把现成 chunks JSON 导入 Milvus，并记录运行 manifest。
 - `python scripts/build_graph.py --chunks-file data/processed/chunks.json`
@@ -112,8 +114,8 @@ make help
 - 官方文档清单固定在 `data/raw/official/manifest.json`
 - `download_official_docs.py` 默认下载 PDF
 - Tesla 官方 `service.tesla.com` 维修手册主体是 HTML 站点
-- 这些 HTML 页面现在会保存入口快照，但还不能直接走当前 PDF-only 离线解析链路
-- 所以目前可直接 ingest 的官方资料以 PDF 为主，Tesla HTML 维修手册需要后续补 HTML ingestion
+- `fetch_tesla_service_manual.py` 抓下来的 HTML 页面现在可以直接被 `build_index.py` 递归发现并切成 chunks
+- `build_index.py` 会把发现到的 PDF / HTML / chunks JSON 数量，以及被跳过的非 chunks JSON 示例写进 run manifest 和 `run.log`
 
 ## 失败排查
 

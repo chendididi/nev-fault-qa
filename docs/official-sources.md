@@ -15,6 +15,9 @@
   - Tesla 官方 service manual 的 HTML 入口会保存在 manifest 中，按需可用 `--include-html` 抓取入口页快照
 - `python scripts/fetch_tesla_service_manual.py --manual model3_2024_en_us`
   - 从本地 seed HTML 提取 Tesla service manual 链接，并抓取同站 HTML 页面到本地目录
+- `python scripts/build_index.py --input data/raw/official --skip-embedding`
+  - 递归摄取官方目录中的 PDF、Tesla HTML 和预构建 chunks JSON
+  - 运行日志和 run manifest 会记录发现统计、跳过的非 chunks JSON，以及最终 chunk 数
 
 ## 数据源边界
 
