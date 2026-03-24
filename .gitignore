@@ -1,5 +1,8 @@
 # 数据与模型（体积大，含版权）
-data/raw/
+data/raw/*
+!data/raw/official/
+data/raw/official/*
+!data/raw/official/manifest.json
 models/
 *.pdf
 

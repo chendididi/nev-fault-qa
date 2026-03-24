@@ -14,6 +14,8 @@
   把现成 chunks JSON 导入 Milvus，并记录运行 manifest。
 - `python scripts/build_graph.py --chunks-file data/processed/chunks.json`
   验证实体抽取和 Neo4j 写入链路，并保存版本化 `chunks_with_entities.json`。
+- `python scripts/download_official_docs.py`
+  下载一批官方 Tesla / BYD 文档到 `data/raw/official/`，并记录下载运行 manifest。
 - `python scripts/rollback_artifact.py --pipeline build_index --previous`
   回滚 `build_index` 或 `build_graph` 的文件产物到上一个激活版本。
 - `python tests/eval_ragas.py`
@@ -104,6 +106,14 @@ make help
   - `data/processed/chunks_with_entities.json`
 - 这些稳定路径不再是“唯一产物”，而是当前激活版本的同步副本
 - 第一阶段回滚只覆盖文件产物，不覆盖 Milvus / Neo4j 的深度回滚
+
+## 官方数据入口
+
+- 官方文档清单固定在 `data/raw/official/manifest.json`
+- `download_official_docs.py` 默认下载 PDF
+- Tesla 官方 `service.tesla.com` 维修手册主体是 HTML 站点
+- 这些 HTML 页面现在会保存入口快照，但还不能直接走当前 PDF-only 离线解析链路
+- 所以目前可直接 ingest 的官方资料以 PDF 为主，Tesla HTML 维修手册需要后续补 HTML ingestion
 
 ## 失败排查
 

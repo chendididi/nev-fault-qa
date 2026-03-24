@@ -127,6 +127,18 @@ curl http://localhost:9091/healthz
 python scripts/build_index.py --input data/sample/ --skip-embedding
 ```
 
+### 可选：下载官方公开文档到本地
+
+```bash
+python scripts/download_official_docs.py
+```
+
+说明：
+
+- 文档清单在 `data/raw/official/manifest.json`
+- 下载文件只落本地，不进 git
+- Tesla 官方维修手册主体是 HTML 站点，当前会保存入口页快照；真正纳入索引还需要后续 HTML ingestion
+
 将示例数据导入 Milvus（向量索引）：
 
 ```bash

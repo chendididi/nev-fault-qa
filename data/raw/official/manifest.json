@@ -1,0 +1,62 @@
+{
+  "notes": [
+    "只收录公开可访问、来源清晰的官方文档。",
+    "下载后的原始文件仅用于本地内部知识库构建，不对外再分发。"
+  ],
+  "entries": [
+    {
+      "id": "tesla_service_mode_guide",
+      "brand": "tesla",
+      "kind": "service_guide",
+      "format": "pdf",
+      "official": true,
+      "url": "https://service.tesla.com/docs/Public/ServiceMode/service_mode_user_guide.pdf",
+      "target_path": "data/raw/official/tesla/tesla_service_mode_user_guide.pdf"
+    },
+    {
+      "id": "tesla_model3_owners_manual",
+      "brand": "tesla",
+      "kind": "owners_manual",
+      "format": "pdf",
+      "official": true,
+      "url": "https://www.tesla.com/ownersmanual/model3/en_us/Owners_Manual.pdf",
+      "target_path": "data/raw/official/tesla/tesla_model3_owners_manual.pdf"
+    },
+    {
+      "id": "tesla_model3_service_manual_entry",
+      "brand": "tesla",
+      "kind": "service_manual",
+      "format": "html",
+      "official": true,
+      "url": "https://service.tesla.com/docs/Model3/ServiceManual/index-model-3-2017.html",
+      "target_path": "data/raw/official/tesla/tesla_model3_service_manual_entry.html"
+    },
+    {
+      "id": "tesla_modely_service_manual_entry",
+      "brand": "tesla",
+      "kind": "service_manual",
+      "format": "html",
+      "official": true,
+      "url": "https://service.tesla.com/docs/ModelY/ServiceManual/index-model-y.html",
+      "target_path": "data/raw/official/tesla/tesla_modely_service_manual_entry.html"
+    },
+    {
+      "id": "byd_han_ev_owners_manual",
+      "brand": "byd",
+      "kind": "owners_manual",
+      "format": "pdf",
+      "official": true,
+      "url": "https://www.byd.com/content/dam/byd-site/mea-public/after-sales/manual/gcc/BYD_HAN_EV_Owner%E2%80%99s_Manual.pdf",
+      "target_path": "data/raw/official/byd/byd_han_ev_owners_manual.pdf"
+    },
+    {
+      "id": "byd_atto3_owners_manual",
+      "brand": "byd",
+      "kind": "owners_manual",
+      "format": "pdf",
+      "official": true,
+      "url": "https://www.byd.com/content/dam/byd-site/my/support/byd-atto3-owner-s-manual-right-1227.pdf",
+      "target_path": "data/raw/official/byd/byd_atto3_owners_manual.pdf"
+    }
+  ]
+}

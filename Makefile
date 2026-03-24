@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -17,6 +17,7 @@ help:
 	@printf "  make run-api                # run FastAPI app\n"
 	@printf "  make run-frontend           # run Streamlit MVP\n"
 	@printf "  make eval-ragas             # run RAGAS against a running API\n"
+	@printf "  make download-official-docs # download official Tesla/BYD docs\n"
 	@printf "  make health-ready           # check readiness endpoint\n"
 	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
 	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
@@ -46,7 +47,13 @@ test-build-index:
 test-run-manifest:
 	$(PYTEST) tests/test_run_manifest.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest
+test-chunk-contract:
+	$(PYTEST) tests/test_chunk_contract.py -q
+
+test-official-docs-manifest:
+	$(PYTEST) tests/test_official_docs_manifest.py -q
+
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest
 
 check: compile test-unit
 
@@ -66,6 +73,9 @@ sample-setup: build-index-sample load-sample-embeddings
 
 build-graph:
 	$(PYTHON) scripts/build_graph.py --chunks-file data/processed/chunks.json
+
+download-official-docs:
+	$(PYTHON) scripts/download_official_docs.py
 
 run-api:
 	$(UVICORN) src.api.main:app --host $(HOST) --port $(PORT)

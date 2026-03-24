@@ -5,8 +5,8 @@
 依赖 data/processed/chunks.json 已由 build_index.py 生成。
 
 使用方法：
-    python scripts/build_graph.py --input data/raw/
-    python scripts/build_graph.py --input data/sample/
+    python scripts/build_graph.py --chunks-file data/processed/chunks.json
+    python scripts/build_graph.py --input data/processed/chunks.json
 """
 
 import argparse
@@ -28,11 +28,22 @@ from src.ops.logging_setup import log_context, setup_logging
 from src.ops.run_manifest import RunRecorder
 
 
+def resolve_chunks_file(input_arg: str | None, chunks_file_arg: str | None) -> Path:
+    if chunks_file_arg:
+        return Path(chunks_file_arg)
+    if input_arg:
+        input_path = Path(input_arg)
+        if input_path.is_dir():
+            return input_path / "chunks.json"
+        return input_path
+    return Path("data/processed/chunks.json")
+
+
 def main():
     parser = argparse.ArgumentParser(description="构建 Neo4j 知识图谱")
-    parser.add_argument("--input", default=None, help="输入 PDF 目录（可选，使用已有 chunks.json 则不需要）")
+    parser.add_argument("--input", default=None, help="chunks JSON 文件或包含 chunks.json 的目录")
     parser.add_argument("--config", default="config/config.yaml", help="配置文件路径")
-    parser.add_argument("--chunks-file", default="data/processed/chunks.json", help="已有 chunks JSON 路径")
+    parser.add_argument("--chunks-file", default=None, help="已有 chunks JSON 路径；优先级高于 --input")
     args = parser.parse_args()
 
     # 加载配置
@@ -55,7 +66,7 @@ def main():
     neo4j_cfg = cfg["neo4j"]
 
     # ─── Step 1: 加载 chunks ─────────────────────────────────────────
-    chunks_file = Path(args.chunks_file)
+    chunks_file = resolve_chunks_file(args.input, args.chunks_file)
     if not chunks_file.exists():
         message = f"chunks.json 不存在，请先运行 build_index.py: {chunks_file}"
         logger.error(message)

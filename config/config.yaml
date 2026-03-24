@@ -64,6 +64,8 @@ data_processing:
   chunk_overlap: 64
   # 表格提取
   table_extraction: true
+  # 电路图 OCR 默认关闭，避免默认路径强依赖本地大模型
+  circuit_ocr: false
   # 电路图页面阈值（图像占比超过此值时触发 OCR）
   circuit_image_ratio: 0.3
 
