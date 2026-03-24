@@ -86,12 +86,19 @@ def main():
                 model_path=qwen_cfg["model_path"],
                 device=qwen_cfg["device"],
             )
+            entity_cache_dir = Path(artifacts_root) / "build_graph" / "entity_cache"
+            run.note(f"entity_cache_dir={entity_cache_dir}")
 
             def progress(current, total):
                 if current % 50 == 0:
                     logger.info(f"实体抽取进度: {current}/{total} ({100*current//total}%)")
 
-            chunks_with_entities = batch_extract_entities(chunks, qwen, progress_callback=progress)
+            chunks_with_entities = batch_extract_entities(
+                chunks,
+                qwen,
+                progress_callback=progress,
+                cache_dir=entity_cache_dir,
+            )
 
             output = store.stage_json(
                 pipeline="build_graph",
@@ -112,7 +119,7 @@ def main():
                 database=neo4j_cfg["database"],
             ) as neo4j:
                 create_indexes(neo4j)
-                build_graph_from_chunks(chunks_with_entities, neo4j)
+                build_graph_from_chunks(chunks_with_entities, neo4j, run_id=run.run_id)
                 stats = neo4j.get_stats()
                 run.update_stats(**stats)
                 logger.info(f"图谱统计: {stats}")

@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -53,7 +53,10 @@ test-chunk-contract:
 test-official-docs-manifest:
 	$(PYTEST) tests/test_official_docs_manifest.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest
+test-kg:
+	$(PYTEST) tests/test_entity_extractor.py tests/test_relation_builder.py -q
+
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-kg
 
 check: compile test-unit
 
