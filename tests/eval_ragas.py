@@ -13,18 +13,12 @@ import argparse
 import hashlib
 import json
 import sys
+import types
 from pathlib import Path
 
 import requests
 from datasets import Dataset
 from loguru import logger
-from ragas import evaluate
-from ragas.metrics import (
-    answer_relevancy,
-    context_precision,
-    context_recall,
-    faithfulness,
-)
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -48,6 +42,39 @@ BUILTIN_QA_SET = [
     },
 ]
 
+
+def _ensure_langchain_pydantic_v1() -> None:
+    """
+    RAGAS 0.1.x 依赖 langchain_core.pydantic_v1，在 langchain-core>=1.0 中已移除。
+    这里注入兼容模块，避免评估脚本直接失败。
+    """
+    try:
+        import pydantic
+        from pydantic import v1 as pydantic_v1
+    except Exception:
+        try:
+            import pydantic  # type: ignore
+            pydantic_v1 = pydantic
+        except Exception:
+            return
+
+    for module_name in ("langchain_core.pydantic_v1", "langchain.pydantic_v1"):
+        if module_name in sys.modules:
+            continue
+        module = types.ModuleType(module_name)
+        module.__dict__.update(pydantic_v1.__dict__)
+        sys.modules[module_name] = module
+
+
+_ensure_langchain_pydantic_v1()
+
+from ragas import evaluate
+from ragas.metrics import (
+    answer_relevancy,
+    context_precision,
+    context_recall,
+    faithfulness,
+)
 
 def _sha256(path: Path) -> str:
     hasher = hashlib.sha256()
