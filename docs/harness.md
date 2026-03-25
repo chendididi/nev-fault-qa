@@ -140,7 +140,7 @@ make help
    目标：把 query、召回候选数、rerank 输入输出、图谱命中情况写成更完整的可追踪事件。
 3. CI 分层
    目标：PR 默认跑 `make check`，夜间任务再跑重依赖评估。
-4. 数据契约测试
-   目标：显式校验 chunks 必含字段、页码类型、source/chapter 长度约束。
+4. 数据契约测试（已补基础版）
+   目标：显式校验 chunks 必含字段、页码类型、source/chapter/text/chunk_id 长度约束。
 5. 外部服务回滚
    目标：为 Milvus / Neo4j 引入版本化导入和可执行恢复流程，而不只回滚本地文件产物。
