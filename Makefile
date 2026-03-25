@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas health health-ready rollback-artifact codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas health health-ready rollback-artifact handoff codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -21,6 +21,7 @@ help:
 	@printf "  make fetch-tesla-service-manual # crawl Tesla HTML service manual pages\n"
 	@printf "  make health-ready           # check readiness endpoint\n"
 	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
+	@printf "  make handoff                # write handoff snapshot to data/artifacts/handoff/latest.md\n"
 	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
 	@printf "  make codex-resume           # resume last Codex session inside tmux\n"
 
@@ -112,6 +113,9 @@ ifeq ($(strip $(RUN_ID)),)
 else
 	$(PYTHON) scripts/rollback_artifact.py --pipeline $(PIPELINE) --run-id $(RUN_ID)
 endif
+
+handoff:
+	$(PYTHON) scripts/handoff_snapshot.py
 
 codex-tmux:
 	./scripts/start_codex_tmux.sh
