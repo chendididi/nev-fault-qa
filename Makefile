@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas eval-ragas-fixed health health-ready rollback-artifact rollback-milvus rollback-graph handoff codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-handoff test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas eval-ragas-fixed health health-ready rollback-artifact rollback-milvus rollback-graph handoff codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -24,7 +24,7 @@ help:
 	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
 	@printf "  make rollback-milvus        # rebuild Milvus from previous build_index chunks\n"
 	@printf "  make rollback-graph         # rebuild Neo4j from previous build_graph entities\n"
-	@printf "  make handoff                # write handoff snapshot to data/artifacts/handoff/latest.md\n"
+	@printf "  make handoff                # write versioned handoff snapshot + latest pointers\n"
 	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
 	@printf "  make codex-resume           # resume last Codex session inside tmux\n"
 
@@ -64,10 +64,13 @@ test-html-manual:
 test-eval-dataset:
 	$(PYTEST) tests/test_eval_dataset.py -q
 
+test-handoff:
+	$(PYTEST) tests/test_handoff_snapshot.py -q
+
 test-kg:
 	$(PYTEST) tests/test_entity_extractor.py tests/test_relation_builder.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-kg
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-handoff test-kg
 
 check: compile test-unit
 

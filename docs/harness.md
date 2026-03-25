@@ -26,6 +26,9 @@
   重新构建 Milvus collection（需要模型与 Milvus 可用）。
 - `python scripts/rollback_graph.py --previous`
   清空 Neo4j 并从历史 `chunks_with_entities.json` 重建图谱。
+- `make handoff`
+  生成版本化交接快照，写入 `data/artifacts/handoff/<run_id>/`，并更新 `data/artifacts/handoff/latest.md` 与 `latest.json`。
+  快照会带上工作区状态、最近产物、`/ready` 状态、活跃进程、最新 RAGAS 结果和错误摘要。
 - `python tests/eval_ragas.py`
   对运行中的 API 做质量评估，默认使用内置评估集。
 - `python tests/eval_ragas.py --qa-file tests/eval_qa_set.json`
