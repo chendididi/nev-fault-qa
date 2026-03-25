@@ -32,6 +32,11 @@
   使用固定评测集做评估，输出结果包含评测集哈希，便于对比回归。
 - `python tests/eval_ragas.py --qa-file tests/eval_qa_set.json --llm-model gpt-5.4 --llm-base-url https://cmdme.cn`
   使用中转站 LLM 作为评估模型（需设置 `OPENAI_API_KEY` 环境变量）。
+  若未设置环境变量，会尝试读取 `~/.codex/auth.json` 中的 `OPENAI_API_KEY`。
+  可用 `--ragas-timeout 600 --ragas-max-workers 4 --ragas-max-retries 3` 控制超时与并发；
+  可用 `--llm-max-attempts 3 --llm-backoff 2` 控制评估 LLM 重试。
+  评估向量默认读取 `config/config.yaml` + `config/config.local.yaml` 中的本地 embedding 配置，可用 `--config` 指定配置文件。
+  默认会压缩 RAGAS 的 few-shot 示例并将 `answer_relevancy` strictness 设为 1，以降低中转站超时与 502 风险；可用 `--keep-ragas-examples` 或 `--answer-relevancy-strictness` 调整。
 
 ## 建议验证层级
 
