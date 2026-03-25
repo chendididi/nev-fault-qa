@@ -16,12 +16,20 @@
   把现成 chunks JSON 导入 Milvus，并记录运行 manifest。
 - `python scripts/build_graph.py --chunks-file data/processed/chunks.json`
   验证实体抽取和 Neo4j 写入链路，并保存版本化 `chunks_with_entities.json`。
+- `python scripts/build_graph.py --chunks-file data/processed/chunks.json --entities-file data/processed/chunks_with_entities.json`
+  跳过实体抽取，复用已有实体结果重建图谱（用于回滚或快速验证）。
 - `python scripts/download_official_docs.py`
   下载一批官方 Tesla / BYD 文档到 `data/raw/official/`，并记录下载运行 manifest。
 - `python scripts/rollback_artifact.py --pipeline build_index --previous`
   回滚 `build_index` 或 `build_graph` 的文件产物到上一个激活版本。
+- `python scripts/rollback_milvus.py --previous`
+  重新构建 Milvus collection（需要模型与 Milvus 可用）。
+- `python scripts/rollback_graph.py --previous`
+  清空 Neo4j 并从历史 `chunks_with_entities.json` 重建图谱。
 - `python tests/eval_ragas.py`
   对运行中的 API 做质量评估，默认使用内置评估集。
+- `python tests/eval_ragas.py --qa-file tests/eval_qa_set.json`
+  使用固定评测集做评估，输出结果包含评测集哈希，便于对比回归。
 
 ## 建议验证层级
 
@@ -134,13 +142,14 @@ make help
 
 这是下一批优先级最高的改造项：
 
-1. 固定评测集入库
+1. 固定评测集入库（已完成）
    目标：把 `tests/eval_qa_set.json` 作为仓库工件维护，避免每次临时拼样本。
-2. 端到端 trace 深化
-   目标：把 query、召回候选数、rerank 输入输出、图谱命中情况写成更完整的可追踪事件。
-3. CI 分层
+2. 端到端 trace 深化（已完成基础版）
+   目标：把 query 哈希、召回候选数、rerank 输入输出、图谱命中情况和各阶段耗时写成可追踪事件。
+3. CI 分层（已补基础版）
    目标：PR 默认跑 `make check`，夜间任务再跑重依赖评估。
+   说明：`nightly` workflow 的重依赖 job 需设置仓库变量 `NEV_ENABLE_HEAVY=true` 才会执行。
 4. 数据契约测试（已补基础版）
    目标：显式校验 chunks 必含字段、页码类型、source/chapter/text/chunk_id 长度约束。
-5. 外部服务回滚
-   目标：为 Milvus / Neo4j 引入版本化导入和可执行恢复流程，而不只回滚本地文件产物。
+5. 外部服务回滚（已补基础版）
+   目标：为 Milvus / Neo4j 引入可执行恢复流程，而不只回滚本地文件产物。

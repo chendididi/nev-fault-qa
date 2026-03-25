@@ -7,6 +7,7 @@
 使用方法：
     python scripts/build_graph.py --chunks-file data/processed/chunks.json
     python scripts/build_graph.py --input data/processed/chunks.json
+    python scripts/build_graph.py --chunks-file data/processed/chunks.json --entities-file data/processed/chunks_with_entities.json
 """
 
 import argparse
@@ -44,6 +45,7 @@ def main():
     parser.add_argument("--input", default=None, help="chunks JSON 文件或包含 chunks.json 的目录")
     parser.add_argument("--config", default="config/config.yaml", help="配置文件路径")
     parser.add_argument("--chunks-file", default=None, help="已有 chunks JSON 路径；优先级高于 --input")
+    parser.add_argument("--entities-file", default=None, help="已有 chunks_with_entities.json 路径")
     args = parser.parse_args()
 
     # 加载配置
@@ -57,6 +59,7 @@ def main():
         inputs={
             "chunks_file": args.chunks_file,
             "input_dir": args.input,
+            "entities_file": args.entities_file,
         },
     )
     setup_logging(cfg, component="build_graph", run_log_path=run.run_dir / "run.log")
@@ -80,25 +83,35 @@ def main():
             logger.info(f"加载 {len(chunks)} 个文本块")
             run.update_stats(chunk_count=len(chunks))
 
-            # ─── Step 2: 实体抽取 ────────────────────────────────────
-            logger.info("Step 2/3: 实体抽取（使用 Qwen2-VL）")
-            qwen = QwenClient(
-                model_path=qwen_cfg["model_path"],
-                device=qwen_cfg["device"],
-            )
-            entity_cache_dir = Path(artifacts_root) / "build_graph" / "entity_cache"
-            run.note(f"entity_cache_dir={entity_cache_dir}")
+            # ─── Step 2: 实体抽取 / 复用已有实体 ─────────────────────
+            if args.entities_file:
+                entities_file = Path(args.entities_file)
+                if not entities_file.exists():
+                    raise FileNotFoundError(f"entities 文件不存在: {entities_file}")
+                logger.info(f"Step 2/3: 复用已有实体抽取结果: {entities_file}")
+                chunks_with_entities = json.loads(entities_file.read_text(encoding="utf-8"))
+                if not chunks_with_entities:
+                    raise ValueError(f"entities 文件为空: {entities_file}")
+                run.update_stats(entity_extraction_skipped=True)
+            else:
+                logger.info("Step 2/3: 实体抽取（使用 Qwen2-VL）")
+                qwen = QwenClient(
+                    model_path=qwen_cfg["model_path"],
+                    device=qwen_cfg["device"],
+                )
+                entity_cache_dir = Path(artifacts_root) / "build_graph" / "entity_cache"
+                run.note(f"entity_cache_dir={entity_cache_dir}")
 
-            def progress(current, total):
-                if current % 50 == 0:
-                    logger.info(f"实体抽取进度: {current}/{total} ({100*current//total}%)")
+                def progress(current, total):
+                    if current % 50 == 0:
+                        logger.info(f"实体抽取进度: {current}/{total} ({100*current//total}%)")
 
-            chunks_with_entities = batch_extract_entities(
-                chunks,
-                qwen,
-                progress_callback=progress,
-                cache_dir=entity_cache_dir,
-            )
+                chunks_with_entities = batch_extract_entities(
+                    chunks,
+                    qwen,
+                    progress_callback=progress,
+                    cache_dir=entity_cache_dir,
+                )
 
             output = store.stage_json(
                 pipeline="build_graph",

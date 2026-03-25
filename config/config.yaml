@@ -81,6 +81,7 @@ logging:
   file: "logs/nev_qa.log"
   rotation: "10 MB"
   file_json: true
+  trace_enabled: true        # 记录 RAG Trace 事件（可观测性）
 
 # ─── 运行与产物 ────────────────────────────────────────────────────────
 ops:

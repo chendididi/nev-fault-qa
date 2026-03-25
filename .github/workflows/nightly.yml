@@ -1,0 +1,56 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run lightweight checks
+        run: make check
+
+  heavy:
+    runs-on: ubuntu-latest
+    if: vars.NEV_ENABLE_HEAVY == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Start infra
+        run: docker compose up -d
+
+      - name: Build sample chunks
+        run: python scripts/build_index.py --input data/sample/ --skip-embedding
+
+      - name: Load embeddings
+        run: python scripts/load_embeddings.py --input data/sample/sample_chunks.json
+
+      - name: Start API
+        run: |
+          uvicorn src.api.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+
+      - name: Run RAGAS evaluation
+        run: python tests/eval_ragas.py --qa-file tests/eval_qa_set.json

@@ -10,6 +10,7 @@ RAGAS 自动评估脚本
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -46,6 +47,52 @@ BUILTIN_QA_SET = [
         "ground_truth_context": "车辆启动困难可能由多种原因引起：电池电量不足、启动电机故障、点火系统异常等。",
     },
 ]
+
+
+def _sha256(path: Path) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(path.read_bytes())
+    return hasher.hexdigest()
+
+
+def _validate_qa_items(qa_items: list[dict]) -> None:
+    required = {"question", "ground_truth", "ground_truth_context"}
+    for idx, item in enumerate(qa_items):
+        missing = required - set(item.keys())
+        if missing:
+            raise ValueError(f"评测集第 {idx} 项缺少字段: {', '.join(sorted(missing))}")
+        for key in required:
+            if not isinstance(item[key], str) or not item[key].strip():
+                raise ValueError(f"评测集第 {idx} 项 {key} 为空")
+
+
+def load_eval_set(qa_file: str | None) -> tuple[list[dict], dict]:
+    if qa_file and Path(qa_file).exists():
+        path = Path(qa_file)
+        qa_items = json.loads(path.read_text(encoding="utf-8"))
+        _validate_qa_items(qa_items)
+        return qa_items, {
+            "dataset_path": str(path),
+            "dataset_sha256": _sha256(path),
+            "dataset_source": "explicit",
+        }
+
+    default_path = Path(DEFAULT_QA_FILE)
+    if default_path.exists():
+        qa_items = json.loads(default_path.read_text(encoding="utf-8"))
+        _validate_qa_items(qa_items)
+        return qa_items, {
+            "dataset_path": str(default_path),
+            "dataset_sha256": _sha256(default_path),
+            "dataset_source": "default",
+        }
+
+    _validate_qa_items(BUILTIN_QA_SET)
+    return BUILTIN_QA_SET, {
+        "dataset_path": None,
+        "dataset_sha256": None,
+        "dataset_source": "builtin",
+    }
 
 
 def call_api(question: str) -> tuple[str, list[str]]:
@@ -104,12 +151,12 @@ def main():
     args = parser.parse_args()
 
     # 加载评估集
-    if args.qa_file and Path(args.qa_file).exists():
-        qa_items = json.loads(Path(args.qa_file).read_text(encoding="utf-8"))
-        logger.info(f"使用外部评估集: {args.qa_file}，共 {len(qa_items)} 条")
-    else:
-        qa_items = BUILTIN_QA_SET
-        logger.info(f"使用内置示例评估集，共 {len(qa_items)} 条")
+    qa_items, dataset_meta = load_eval_set(args.qa_file)
+    logger.info(
+        f"使用评估集来源: {dataset_meta['dataset_source']}，共 {len(qa_items)} 条"
+    )
+    if dataset_meta.get("dataset_path"):
+        logger.info(f"评估集路径: {dataset_meta['dataset_path']}")
 
     # 构建数据集
     logger.info("调用 API 构建评估数据集...")
@@ -144,6 +191,10 @@ def main():
         "answer_relevancy": result["answer_relevancy"],
         "context_precision": result["context_precision"],
         "context_recall": result["context_recall"],
+        "dataset_path": dataset_meta.get("dataset_path"),
+        "dataset_sha256": dataset_meta.get("dataset_sha256"),
+        "dataset_source": dataset_meta.get("dataset_source"),
+        "dataset_count": len(qa_items),
     }
     output_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info(f"评估结果已保存: {output_path}")

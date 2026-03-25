@@ -29,6 +29,16 @@ class StubHybridRetriever:
             }
         ]
 
+    def retrieve_with_stats(self, query: str, top_k: int = 20):
+        return self.retrieve(query, top_k), {
+            "bm25_hits": 1,
+            "embedding_hits": 0,
+            "rrf_candidates": 1,
+            "bm25_top_k": 20,
+            "embedding_top_k": 20,
+            "rrf_k": 60,
+        }
+
 
 class StubReranker:
     def rerank(self, query: str, chunks: list[dict], top_k: int = 5):

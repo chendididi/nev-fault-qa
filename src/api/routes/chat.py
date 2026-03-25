@@ -9,15 +9,19 @@ GET /api/v1/chat/history/{session_id}
   - 获取对话历史（内存存储，重启后清空）
 """
 
+import hashlib
 import json
 import re
 import uuid
 from collections import defaultdict
+from time import perf_counter
 
 from fastapi import APIRouter, Request
 from loguru import logger
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+
+from src.ops.logging_setup import log_context
 
 router = APIRouter()
 
@@ -34,6 +38,29 @@ class ChatResponse(BaseModel):
     session_id: str
     answer: str
     sources: list[dict]
+    trace_id: str | None = None
+
+
+def _hash_query(query: str) -> str:
+    return hashlib.md5(query.encode("utf-8")).hexdigest()[:12]
+
+
+def _graph_stats(graph_data: dict | None) -> dict:
+    if not graph_data:
+        return {
+            "graph_hit": False,
+            "graph_components": 0,
+            "graph_subsystems": 0,
+            "graph_symptoms": 0,
+            "graph_possible_fault_codes": 0,
+        }
+    return {
+        "graph_hit": True,
+        "graph_components": len(graph_data.get("components", [])),
+        "graph_subsystems": len(graph_data.get("subsystems", [])),
+        "graph_symptoms": len(graph_data.get("symptoms", [])),
+        "graph_possible_fault_codes": len(graph_data.get("possible_fault_codes", [])),
+    }
 
 
 def _query_graph_data(state, query: str, rewritten_query: str, intent_value: str) -> dict | None:
@@ -64,7 +91,7 @@ def _query_graph_data(state, query: str, rewritten_query: str, intent_value: str
     return None
 
 
-async def _rag_pipeline(request: Request, query: str) -> tuple[str, list[dict]]:
+async def _rag_pipeline(request: Request, query: str) -> tuple[list[dict], dict | None]:
     """
     执行完整 RAG 流水线，返回 (answer, sources)。
 
@@ -72,33 +99,64 @@ async def _rag_pipeline(request: Request, query: str) -> tuple[str, list[dict]]:
     """
     state = request.app.state
 
+    trace_payload = {
+        "query_hash": _hash_query(query),
+        "query_length": len(query),
+    }
+
+    total_start = perf_counter()
     # 1. Query 预处理
+    rewrite_start = perf_counter()
     rewritten_query, intent = state.query_processor.process(query)
     intent_value = getattr(intent, "value", str(intent))
+    rewrite_ms = int((perf_counter() - rewrite_start) * 1000)
     logger.bind(intent=intent_value, rewritten_query=rewritten_query).info("query_processed")
 
     # 2. 混合检索
+    retrieval_start = perf_counter()
     retrieval_cfg = state.config["retrieval"]
-    candidates = state.hybrid_retriever.retrieve(
+    candidates, retrieval_stats = state.hybrid_retriever.retrieve_with_stats(
         rewritten_query,
         top_k=retrieval_cfg["rerank_input_k"],
     )
+    retrieve_ms = int((perf_counter() - retrieval_start) * 1000)
 
     # 3. 重排序
+    rerank_start = perf_counter()
     top_chunks = state.reranker.rerank(
         rewritten_query,
         candidates,
         top_k=retrieval_cfg["rerank_output_k"],
     )
+    rerank_ms = int((perf_counter() - rerank_start) * 1000)
 
     # 4. 知识图谱查询
+    graph_start = perf_counter()
     graph_data = _query_graph_data(state, query, rewritten_query, intent_value)
+    graph_ms = int((perf_counter() - graph_start) * 1000)
     logger.bind(
         intent=intent_value,
         candidate_count=len(candidates),
         rerank_count=len(top_chunks),
         graph_hit=bool(graph_data),
     ).info("rag_pipeline_completed")
+
+    total_ms = int((perf_counter() - total_start) * 1000)
+    graph_stats = _graph_stats(graph_data)
+    logger.bind(
+        intent=intent_value,
+        rewritten_length=len(rewritten_query),
+        rerank_input_count=len(candidates),
+        rerank_output_count=len(top_chunks),
+        rewrite_ms=rewrite_ms,
+        retrieve_ms=retrieve_ms,
+        rerank_ms=rerank_ms,
+        graph_ms=graph_ms,
+        total_ms=total_ms,
+        **trace_payload,
+        **retrieval_stats,
+        **graph_stats,
+    ).info("rag_trace")
 
     return top_chunks, graph_data
 
@@ -112,14 +170,16 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
     request.state.session_id = session_id
     query = chat_req.message
     request_logger = logger.bind(session_id=session_id, route="/api/v1/chat/stream")
+    trace_id = getattr(request.state, "trace_id", None)
 
     async def event_generator():
-        try:
-            top_chunks, graph_data = await _rag_pipeline(request, query)
-        except Exception as e:
-            logger.error(f"RAG 流水线错误: {e}")
-            yield {"data": json.dumps({"error": str(e)}, ensure_ascii=False)}
-            return
+        with log_context(session_id=session_id, route="/api/v1/chat/stream"):
+            try:
+                top_chunks, graph_data = await _rag_pipeline(request, query)
+            except Exception as e:
+                logger.exception("rag_pipeline_failed")
+                yield {"data": json.dumps({"error": str(e), "trace_id": trace_id}, ensure_ascii=False)}
+                return
 
         # 流式生成答案
         full_answer = ""
@@ -138,7 +198,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request):
         request_logger.bind(source_count=len(sources)).info("chat_stream_completed")
         yield {
             "data": json.dumps(
-                {"done": True, "sources": sources, "session_id": session_id},
+                {"done": True, "sources": sources, "session_id": session_id, "trace_id": trace_id},
                 ensure_ascii=False,
             )
         }
@@ -159,8 +219,10 @@ async def chat(chat_req: ChatRequest, request: Request):
     request.state.session_id = session_id
     query = chat_req.message
     request_logger = logger.bind(session_id=session_id, route="/api/v1/chat")
+    trace_id = getattr(request.state, "trace_id", None)
 
-    top_chunks, graph_data = await _rag_pipeline(request, query)
+    with log_context(session_id=session_id, route="/api/v1/chat"):
+        top_chunks, graph_data = await _rag_pipeline(request, query)
 
     answer = request.app.state.answer_generator.generate(
         query=query,
@@ -173,7 +235,7 @@ async def chat(chat_req: ChatRequest, request: Request):
     _sessions[session_id].append({"role": "assistant", "content": answer})
     request_logger.bind(source_count=len(sources)).info("chat_completed")
 
-    return ChatResponse(session_id=session_id, answer=answer, sources=sources)
+    return ChatResponse(session_id=session_id, answer=answer, sources=sources, trace_id=trace_id)
 
 
 @router.get("/chat/history/{session_id}")

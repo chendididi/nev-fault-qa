@@ -7,6 +7,7 @@ Neo4j 客户端封装
 - 连接池管理
 """
 
+from time import perf_counter
 from typing import Any
 
 from loguru import logger
@@ -16,7 +17,14 @@ from neo4j import GraphDatabase, Driver
 class Neo4jClient:
     """Neo4j 连接与查询封装。"""
 
-    def __init__(self, uri: str, username: str, password: str, database: str = "neo4j"):
+    def __init__(
+        self,
+        uri: str,
+        username: str,
+        password: str,
+        database: str = "neo4j",
+        trace_enabled: bool = False,
+    ):
         """
         Args:
             uri: Bolt 连接地址，如 bolt://localhost:7687
@@ -26,6 +34,7 @@ class Neo4jClient:
         """
         self._driver: Driver = GraphDatabase.driver(uri, auth=(username, password))
         self._database = database
+        self._trace_enabled = trace_enabled
         logger.info(f"Neo4j 连接已建立: {uri}")
 
     def close(self) -> None:
@@ -67,7 +76,16 @@ class Neo4jClient:
                collect(DISTINCT sub.name) AS subsystems,
                collect(DISTINCT s.description) AS symptoms
         """
+        started_at = perf_counter()
         results = self.run(query, {"code": fault_code.upper()})
+        latency_ms = int((perf_counter() - started_at) * 1000)
+        if self._trace_enabled:
+            logger.bind(
+                graph_query="fault_code",
+                fault_code=fault_code.upper(),
+                result_count=len(results),
+                latency_ms=latency_ms,
+            ).info("graph_query_completed")
         if not results:
             return {"fault_code": fault_code, "components": [], "subsystems": [], "symptoms": []}
         return results[0]
@@ -93,7 +111,17 @@ class Neo4jClient:
         RETURN fc.code AS fault_code, s.description AS symptom
         ORDER BY fc.code
         """
-        return self.run(query, params)
+        started_at = perf_counter()
+        results = self.run(query, params)
+        latency_ms = int((perf_counter() - started_at) * 1000)
+        if self._trace_enabled:
+            logger.bind(
+                graph_query="symptom_fault_codes",
+                keyword_count=len(symptom_keywords),
+                result_count=len(results),
+                latency_ms=latency_ms,
+            ).info("graph_query_completed")
+        return results
 
     def query_causal_chain(self, fault_code: str, depth: int = 3) -> list[dict]:
         """
@@ -110,7 +138,18 @@ class Neo4jClient:
         MATCH path = (fc:FaultCode {code: $code})-[:INDICATES|CAUSED_BY*1..$depth]->(end)
         RETURN [node IN nodes(path) | labels(node)[0] + ': ' + coalesce(node.code, node.name)] AS chain
         """
-        return self.run(query, {"code": fault_code.upper(), "depth": depth})
+        started_at = perf_counter()
+        results = self.run(query, {"code": fault_code.upper(), "depth": depth})
+        latency_ms = int((perf_counter() - started_at) * 1000)
+        if self._trace_enabled:
+            logger.bind(
+                graph_query="causal_chain",
+                fault_code=fault_code.upper(),
+                depth=depth,
+                result_count=len(results),
+                latency_ms=latency_ms,
+            ).info("graph_query_completed")
+        return results
 
     def get_stats(self) -> dict[str, int]:
         """返回图谱节点和关系统计。"""

@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas health health-ready rollback-artifact handoff codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas eval-ragas-fixed health health-ready rollback-artifact rollback-milvus rollback-graph handoff codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -17,10 +17,13 @@ help:
 	@printf "  make run-api                # run FastAPI app\n"
 	@printf "  make run-frontend           # run Streamlit MVP\n"
 	@printf "  make eval-ragas             # run RAGAS against a running API\n"
+	@printf "  make eval-ragas-fixed       # run RAGAS against fixed eval set\n"
 	@printf "  make download-official-docs # download official Tesla/BYD docs\n"
 	@printf "  make fetch-tesla-service-manual # crawl Tesla HTML service manual pages\n"
 	@printf "  make health-ready           # check readiness endpoint\n"
 	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
+	@printf "  make rollback-milvus        # rebuild Milvus from previous build_index chunks\n"
+	@printf "  make rollback-graph         # rebuild Neo4j from previous build_graph entities\n"
 	@printf "  make handoff                # write handoff snapshot to data/artifacts/handoff/latest.md\n"
 	@printf "  make codex-tmux             # start or attach Codex inside tmux\n"
 	@printf "  make codex-resume           # resume last Codex session inside tmux\n"
@@ -58,10 +61,13 @@ test-official-docs-manifest:
 test-html-manual:
 	$(PYTEST) tests/test_html_manual_parser.py -q
 
+test-eval-dataset:
+	$(PYTEST) tests/test_eval_dataset.py -q
+
 test-kg:
 	$(PYTEST) tests/test_entity_extractor.py tests/test_relation_builder.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-kg
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-kg
 
 check: compile test-unit
 
@@ -101,6 +107,9 @@ else
 	$(PYTHON) tests/eval_ragas.py --qa-file $(QA_FILE)
 endif
 
+eval-ragas-fixed:
+	$(PYTHON) tests/eval_ragas.py --qa-file tests/eval_qa_set.json
+
 health:
 	curl http://localhost:$(PORT)/health
 
@@ -112,6 +121,20 @@ ifeq ($(strip $(RUN_ID)),)
 	$(PYTHON) scripts/rollback_artifact.py --pipeline $(PIPELINE) --previous
 else
 	$(PYTHON) scripts/rollback_artifact.py --pipeline $(PIPELINE) --run-id $(RUN_ID)
+endif
+
+rollback-milvus:
+ifeq ($(strip $(RUN_ID)),)
+	$(PYTHON) scripts/rollback_milvus.py --previous
+else
+	$(PYTHON) scripts/rollback_milvus.py --run-id $(RUN_ID)
+endif
+
+rollback-graph:
+ifeq ($(strip $(RUN_ID)),)
+	$(PYTHON) scripts/rollback_graph.py --previous
+else
+	$(PYTHON) scripts/rollback_graph.py --run-id $(RUN_ID)
 endif
 
 handoff:

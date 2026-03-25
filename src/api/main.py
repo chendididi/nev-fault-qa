@@ -45,6 +45,8 @@ async def lifespan(app: FastAPI):
     milvus_cfg = cfg["milvus"]
     neo4j_cfg = cfg["neo4j"]
     retrieval_cfg = cfg["retrieval"]
+    logging_cfg = cfg.get("logging", {})
+    trace_enabled = bool(logging_cfg.get("trace_enabled", False))
 
     # 初始化组件
     app.state.qwen = QwenClient(
@@ -84,6 +86,7 @@ async def lifespan(app: FastAPI):
         rrf_k=retrieval_cfg["rrf_k"],
         bm25_top_k=retrieval_cfg["bm25_top_k"],
         embedding_top_k=retrieval_cfg["embedding_top_k"],
+        trace_enabled=trace_enabled,
     )
 
     app.state.reranker = BGEReranker(
@@ -97,6 +100,7 @@ async def lifespan(app: FastAPI):
         username=neo4j_cfg["username"],
         password=neo4j_cfg["password"],
         database=neo4j_cfg["database"],
+        trace_enabled=trace_enabled,
     )
 
     logger.info("=== 所有组件初始化完成，服务就绪 ===")
@@ -127,11 +131,14 @@ def create_app(lifespan_handler=lifespan) -> FastAPI:
     @app.middleware("http")
     async def request_logging_middleware(request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        trace_id = request.headers.get("X-Trace-ID") or request_id
         request.state.request_id = request_id
+        request.state.trace_id = trace_id
 
         with log_context(
             component="api",
             request_id=request_id,
+            trace_id=trace_id,
             method=request.method,
             path=request.url.path,
         ):
@@ -149,6 +156,7 @@ def create_app(lifespan_handler=lifespan) -> FastAPI:
                 latency_ms=latency_ms,
             ).info("request_completed")
             response.headers["X-Request-ID"] = request_id
+            response.headers["X-Trace-ID"] = trace_id
             return response
 
     app.include_router(health_router)
