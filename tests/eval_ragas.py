@@ -12,6 +12,7 @@ RAGAS 自动评估脚本
 import argparse
 import hashlib
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -122,6 +123,23 @@ def load_eval_set(qa_file: str | None) -> tuple[list[dict], dict]:
     }
 
 
+def build_llm(model: str | None, base_url: str | None, timeout: int | None):
+    if not model and not base_url:
+        return None
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise EnvironmentError("未设置 OPENAI_API_KEY，无法运行 RAGAS 评估")
+
+    from langchain_openai import ChatOpenAI
+
+    llm_model = model or "gpt-4o-mini"
+    return ChatOpenAI(
+        model=llm_model,
+        base_url=base_url,
+        timeout=timeout,
+    )
+
 def call_api(question: str) -> tuple[str, list[str]]:
     """
     调用 RAG API 获取答案和检索上下文。
@@ -175,6 +193,9 @@ def main():
     parser = argparse.ArgumentParser(description="RAGAS 评估")
     parser.add_argument("--qa-file", default=None, help=f"评估集 JSON 文件路径（默认使用内置示例）")
     parser.add_argument("--output", default="tests/ragas_results.json", help="评估结果输出路径")
+    parser.add_argument("--llm-model", default=None, help="评估用 LLM 模型名称（例如 gpt-5.4）")
+    parser.add_argument("--llm-base-url", default=None, help="评估用 LLM Base URL（例如 https://cmdme.cn）")
+    parser.add_argument("--llm-timeout", type=int, default=None, help="LLM 请求超时（秒）")
     args = parser.parse_args()
 
     # 加载评估集
@@ -195,9 +216,11 @@ def main():
 
     # 运行 RAGAS 评估
     logger.info("运行 RAGAS 评估...")
+    llm = build_llm(args.llm_model, args.llm_base_url, args.llm_timeout)
     result = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        llm=llm,
     )
 
     # 输出结果
@@ -222,6 +245,8 @@ def main():
         "dataset_sha256": dataset_meta.get("dataset_sha256"),
         "dataset_source": dataset_meta.get("dataset_source"),
         "dataset_count": len(qa_items),
+        "llm_model": args.llm_model or "gpt-4o-mini",
+        "llm_base_url": args.llm_base_url,
     }
     output_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info(f"评估结果已保存: {output_path}")

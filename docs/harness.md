@@ -30,6 +30,8 @@
   对运行中的 API 做质量评估，默认使用内置评估集。
 - `python tests/eval_ragas.py --qa-file tests/eval_qa_set.json`
   使用固定评测集做评估，输出结果包含评测集哈希，便于对比回归。
+- `python tests/eval_ragas.py --qa-file tests/eval_qa_set.json --llm-model gpt-5.4 --llm-base-url https://cmdme.cn`
+  使用中转站 LLM 作为评估模型（需设置 `OPENAI_API_KEY` 环境变量）。
 
 ## 建议验证层级
 
