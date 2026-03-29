@@ -521,31 +521,36 @@ nev-fault-qa/
 
 ## 开发进度
 
-### ✅ 阶段一：项目脚手架（已完成）
-所有模块代码已实现，git 仓库已初始化。
+### ✅ 阶段一：项目脚手架与工程化基础（已完成）
+- [x] 模块边界与目录规范落地（含结构约束测试）
+- [x] 配置加载、日志体系、运行记录与产物版本化
+- [x] Make / scripts 统一入口与回滚工具链
 
-### ⏳ 阶段二：数据工程（待开始）
-- [ ] 将官方资料放入 `data/raw/`
-- [ ] 验证 `pdf_parser.py` 分块效果
-- [ ] 验证 `table_extractor.py` 故障码表提取
-- [ ] 运行 `python scripts/build_index.py --input data/raw/`
-- [ ] 验收：Milvus 可按语义检索到相关片段
+### ✅ 阶段二：数据工程（功能已实现，待真实手册验证）
+- [x] PDF 解析分块（chunk_size/overlap 可配置）
+- [x] HTML 手册解析（Tesla service manual）
+- [x] 故障码表格抽取、chunk 契约校验与去重
+- [x] `build_index.py` 产物落盘 + Milvus 向量索引
+- [ ] 真实维修手册全量导入与抽样质检
 
-### ⏳ 阶段三：知识图谱（待开始）
-- [ ] 运行 `python scripts/build_graph.py`
-- [ ] 验收：输入 P0300，返回相关零部件 + 子系统 + 维修链路
+### ✅ 阶段三：知识图谱（功能已实现，待质量验证）
+- [x] 实体抽取（Qwen2-VL）与缓存复用
+- [x] 关系构建、Neo4j 写入、图谱统计与回滚
+- [ ] 真实数据实体/关系覆盖率评估
 
-### ⏳ 阶段四：混合检索（待开始）
-- [ ] 验证 Recall@5 和 MRR 指标
-- [ ] 与单路检索对比提升效果
+### ✅ 阶段四：混合检索（功能已实现，待指标评测）
+- [x] BM25 + 向量检索 + RRF 融合
+- [x] BGE Reranker 精排（Top-20 → Top-5）
+- [ ] Recall@5 / MRR 实测与单路检索对比
 
-### ⏳ 阶段五：系统集成（待开始）
-- [ ] 端到端：输入故障码/现象 → 获得答案 + 来源页码
-- [ ] Streamlit MVP 可用
+### ✅ 阶段五：系统集成（功能已实现，待端到端验证）
+- [x] FastAPI 接口（含 SSE 流式输出）
+- [x] Streamlit MVP 前端
+- [ ] 真实数据端到端演示与稳定性验证
 
-### ⏳ 阶段六：评估优化（待开始）
-- [ ] 运行 `python tests/eval_ragas.py`
-- [ ] 目标：Faithfulness > 0.80，Answer Relevancy > 0.80
+### 🟡 阶段六：评估与优化（评估脚本已具备，待执行）
+- [x] RAGAS 评估脚本与固定评测集
+- [ ] 跑基线指标并做针对性优化（Faithfulness / Answer Relevancy 等）
 
 ---
 
