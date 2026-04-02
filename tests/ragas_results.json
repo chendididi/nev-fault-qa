@@ -1,0 +1,28 @@
+{
+  "faithfulness": 0.3374613003095975,
+  "answer_relevancy": 0.8389622781353304,
+  "context_precision": 0.4312499999759375,
+  "context_recall": 0.5,
+  "dataset_path": "tests/eval_qa_set.json",
+  "dataset_sha256": "9bc487c8f565a7b6c8f964b63b9c30a7fcecff1c80581216b80a838bfaefe3dd",
+  "dataset_source": "explicit",
+  "dataset_count": 8,
+  "llm_model": "gpt-5.4",
+  "llm_base_url": "https://cmdme.cn/v1",
+  "embedding_model": "/root/ubuntuchen_file/nev-fault-qa/models/bge-base-zh-v1.5",
+  "llm_timeout": 30,
+  "ragas_timeout": 80,
+  "ragas_max_workers": 1,
+  "ragas_max_retries": 1,
+  "answer_relevancy_strictness": 1,
+  "keep_ragas_examples": false,
+  "llm_error_count": 20,
+  "llm_error_types": {
+    "InternalServerError": 1,
+    "APITimeoutError": 15,
+    "TimeoutError": 4
+  },
+  "llm_empty_count": 0,
+  "llm_structured_count": 1,
+  "llm_structured_enabled": false
+}

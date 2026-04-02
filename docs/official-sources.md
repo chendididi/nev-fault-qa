@@ -13,6 +13,9 @@
 - `python scripts/download_official_docs.py`
   - 默认下载官方 PDF
   - Tesla 官方 service manual 的 HTML 入口会保存在 manifest 中，按需可用 `--include-html` 抓取入口页快照
+- `python scripts/download_nhtsa_data.py --year-range 2025-2026 --make TESLA --make BYD`
+  - 下载 NHTSA Manufacturer Communications（CSV/TSV）
+  - 默认生成 `data/raw/official/nhtsa/chunks/nhtsa_mfr_comms_chunks.json`，可被 `build_index.py` 直接摄取
 - `python scripts/fetch_tesla_service_manual.py --manual model3_2024_en_us`
   - 从本地 seed HTML 提取 Tesla service manual 链接，并抓取同站 HTML 页面到本地目录
 - `python scripts/build_index.py --input data/raw/official --skip-embedding`
@@ -28,3 +31,6 @@
 - `BYD`
   - 当前公开可拿到的主要是 Owner's Manual / 安全资料
   - 这些资料适合作为维护、告警、故障现象补充语料，不应伪装成维修手册
+- `NHTSA`
+  - 官方公开的 Manufacturer Communications / TSB 数据可作为维修通告类语料补充
+  - 项目当前通过 NHTSA 官方静态源下载，不依赖第三方镜像

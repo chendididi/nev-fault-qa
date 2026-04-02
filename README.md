@@ -12,6 +12,7 @@
 - `AGENTS.md`：仓库级执行入口和硬约束
 - `docs/README.md`：任务导向文档索引
 - `docs/harness.md`：验证分层、命令入口、失败排查
+- `docs/telegram-integration.md`：Telegram Bot 对接与运行指南
 - `make help`：统一命令入口
 
 ---
@@ -138,6 +139,34 @@ python scripts/download_official_docs.py
 - 文档清单在 `data/raw/official/manifest.json`
 - 下载文件只落本地，不进 git
 - Tesla 官方维修手册主体是 HTML 站点；抓下来的 HTML 页面现在可以直接被 `build_index.py` 纳入索引
+
+可选补充 NHTSA 通告类数据（Manufacturer Communications）：
+
+```bash
+python scripts/download_nhtsa_data.py --year-range 2025-2026 --make TESLA --make BYD
+```
+
+### 一键离线自动化（推荐）
+
+```bash
+# 默认流程：make check -> 下载官方文档 -> 抓取 Tesla HTML -> build_index --skip-embedding -> handoff
+python scripts/auto_pipeline.py --include-html
+
+# 加入 NHTSA 通告类数据（会额外下载并生成 nhtsa chunks）
+python scripts/auto_pipeline.py --include-html --with-nhtsa --nhtsa-make TESLA --nhtsa-make BYD
+
+# 开启重依赖阶段（需要 Milvus/Neo4j 可用）
+python scripts/auto_pipeline.py --include-html --with-embedding --with-graph --require-services
+```
+
+可选 hook：
+
+```bash
+python scripts/auto_pipeline.py \
+  --include-html \
+  --hooks-file config/auto_pipeline.hooks.example.json \
+  --hook "build_chunks.post=python -m pytest tests/test_chunk_contract.py -q"
+```
 
 将示例数据导入 Milvus（向量索引）：
 

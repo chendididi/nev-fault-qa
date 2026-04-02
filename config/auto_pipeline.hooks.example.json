@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "pipeline.pre": [
+      "echo '[hook] auto pipeline started'"
+    ],
+    "download_nhtsa.post": [
+      "echo '[hook] nhtsa data downloaded'"
+    ],
+    "build_chunks.post": [
+      "python -m pytest tests/test_chunk_contract.py -q"
+    ],
+    "pipeline.post": [
+      "echo '[hook] auto pipeline finished'"
+    ]
+  }
+}

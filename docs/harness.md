@@ -20,6 +20,11 @@
   跳过实体抽取，复用已有实体结果重建图谱（用于回滚或快速验证）。
 - `python scripts/download_official_docs.py`
   下载一批官方 Tesla / BYD 文档到 `data/raw/official/`，并记录下载运行 manifest。
+- `python scripts/download_nhtsa_data.py --year-range 2025-2026 --make TESLA --make BYD`
+  下载 NHTSA Manufacturer Communications（CSV/TSV），并生成可被 `build_index.py` 直接摄取的 chunks JSON。
+- `python scripts/auto_pipeline.py`
+  一键执行 `make check -> 官方数据下载/抓取 -> build_index --skip-embedding -> handoff`。
+  可通过 `--with-embedding --with-graph` 开启重依赖阶段，并支持 `--hooks-file` / `--hook` 注入 pre/post hook。
 - `python scripts/rollback_artifact.py --pipeline build_index --previous`
   回滚 `build_index` 或 `build_graph` 的文件产物到上一个激活版本。
 - `python scripts/rollback_milvus.py --previous`
@@ -131,9 +136,19 @@ make help
 
 - 官方文档清单固定在 `data/raw/official/manifest.json`
 - `download_official_docs.py` 默认下载 PDF
+- `download_nhtsa_data.py` 默认下载最新 NHTSA 5 年区间（当前默认 `2025-2026`）并生成 chunks JSON
 - Tesla 官方 `service.tesla.com` 维修手册主体是 HTML 站点
 - `fetch_tesla_service_manual.py` 抓下来的 HTML 页面现在可以直接被 `build_index.py` 递归发现并切成 chunks
 - `build_index.py` 会把发现到的 PDF / HTML / chunks JSON 数量，以及被跳过的非 chunks JSON 示例写进 run manifest 和 `run.log`
+
+## 自动化 hook 入口
+
+- `auto_pipeline.py` 支持两种 hook 注入方式：
+  - `--hooks-file config/auto_pipeline.hooks.example.json`
+  - `--hook build_chunks.post='python -m pytest tests/test_chunk_contract.py -q'`
+- hook 触发点为 `<stage>.<pre|post>`，常用 stage：
+  - `pipeline`、`preflight`、`check`、`download_docs`、`download_nhtsa`、`fetch_manual_html`
+  - `build_chunks`、`build_vector`、`build_graph`、`handoff`
 
 ## 失败排查
 
@@ -163,3 +178,5 @@ make help
    目标：显式校验 chunks 必含字段、页码类型、source/chapter/text/chunk_id 长度约束。
 5. 外部服务回滚（已补基础版）
    目标：为 Milvus / Neo4j 引入可执行恢复流程，而不只回滚本地文件产物。
+
+412..

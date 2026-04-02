@@ -7,7 +7,7 @@ QA_FILE ?=
 PIPELINE ?= build_index
 RUN_ID ?=
 
-.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-handoff test-kg infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs fetch-tesla-service-manual run-api run-frontend eval-ragas eval-ragas-fixed health health-ready rollback-artifact rollback-milvus rollback-graph handoff codex-tmux codex-resume
+.PHONY: help compile check test-unit test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-fetch-manual test-download-nhtsa test-eval-dataset test-handoff test-kg test-auto-pipeline infra-up infra-down build-index-sample load-sample-embeddings sample-setup build-graph download-official-docs download-nhtsa-data fetch-tesla-service-manual auto-pipeline run-api run-frontend eval-ragas eval-ragas-fixed health health-ready rollback-artifact rollback-milvus rollback-graph handoff codex-tmux codex-resume
 
 help:
 	@printf "Available targets:\n"
@@ -19,7 +19,9 @@ help:
 	@printf "  make eval-ragas             # run RAGAS against a running API\n"
 	@printf "  make eval-ragas-fixed       # run RAGAS against fixed eval set\n"
 	@printf "  make download-official-docs # download official Tesla/BYD docs\n"
+	@printf "  make download-nhtsa-data    # download NHTSA manufacturer communications + chunks\n"
 	@printf "  make fetch-tesla-service-manual # crawl Tesla HTML service manual pages\n"
+	@printf "  make auto-pipeline          # run end-to-end offline automation pipeline\n"
 	@printf "  make health-ready           # check readiness endpoint\n"
 	@printf "  make rollback-artifact      # rollback build_index/build_graph artifact\n"
 	@printf "  make rollback-milvus        # rebuild Milvus from previous build_index chunks\n"
@@ -61,6 +63,12 @@ test-official-docs-manifest:
 test-html-manual:
 	$(PYTEST) tests/test_html_manual_parser.py -q
 
+test-fetch-manual:
+	$(PYTEST) tests/test_fetch_tesla_service_manual.py -q
+
+test-download-nhtsa:
+	$(PYTEST) tests/test_download_nhtsa_data.py -q
+
 test-eval-dataset:
 	$(PYTEST) tests/test_eval_dataset.py -q
 
@@ -70,7 +78,10 @@ test-handoff:
 test-kg:
 	$(PYTEST) tests/test_entity_extractor.py tests/test_relation_builder.py -q
 
-test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-eval-dataset test-handoff test-kg
+test-auto-pipeline:
+	$(PYTEST) tests/test_auto_pipeline.py -q
+
+test-unit: test-retrieval test-generation test-chat-routes test-health test-architecture test-build-index test-run-manifest test-chunk-contract test-official-docs-manifest test-html-manual test-fetch-manual test-download-nhtsa test-eval-dataset test-handoff test-kg test-auto-pipeline
 
 check: compile test-unit
 
@@ -94,8 +105,14 @@ build-graph:
 download-official-docs:
 	$(PYTHON) scripts/download_official_docs.py
 
+download-nhtsa-data:
+	$(PYTHON) scripts/download_nhtsa_data.py
+
 fetch-tesla-service-manual:
 	$(PYTHON) scripts/fetch_tesla_service_manual.py
+
+auto-pipeline:
+	$(PYTHON) scripts/auto_pipeline.py
 
 run-api:
 	$(UVICORN) src.api.main:app --host $(HOST) --port $(PORT)

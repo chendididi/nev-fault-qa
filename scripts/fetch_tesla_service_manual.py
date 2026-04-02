@@ -25,7 +25,10 @@ from src.ops.run_manifest import RunRecorder
 
 MANUALS = {
     "model3_2024_en_us": {
-        "seed_file": "data/raw/official/tesla/html/model3-service-manual-2024-index.html",
+        "seed_candidates": [
+            "data/raw/official/tesla/html/model3-service-manual-2024-index.html",
+            "data/raw/official/tesla/tesla_model3_service_manual_entry.html",
+        ],
         "base_url": "https://service.tesla.com/docs/Model3/ServiceManual/2024/en-us/index.html",
         "output_dir": "data/raw/official/tesla/model3_2024_en_us",
     }
@@ -38,10 +41,33 @@ def _download_text(url: str) -> str:
         return response.read().decode("utf-8", errors="ignore")
 
 
+def _resolve_seed_file(manual: dict, override: str | None = None) -> Path:
+    if override:
+        return Path(override)
+
+    candidates = manual.get("seed_candidates") or [manual["seed_file"]]
+    for candidate in candidates:
+        candidate_path = Path(candidate)
+        if candidate_path.exists():
+            return candidate_path
+    return Path(candidates[0])
+
+
+def _load_seed_html(seed_file: Path, base_url: str) -> tuple[str, str]:
+    if seed_file.exists():
+        return seed_file.read_text(encoding="utf-8"), "local"
+
+    seed_file.parent.mkdir(parents=True, exist_ok=True)
+    html_text = _download_text(base_url)
+    seed_file.write_text(html_text, encoding="utf-8")
+    return html_text, "downloaded_from_base_url"
+
+
 def main():
     parser = argparse.ArgumentParser(description="抓取 Tesla service manual HTML 页面")
     parser.add_argument("--manual", choices=sorted(MANUALS), default="model3_2024_en_us")
     parser.add_argument("--max-pages", type=int, default=200, help="最多下载的 HTML 页面数")
+    parser.add_argument("--seed-file", default=None, help="手动指定 seed HTML 路径")
     parser.add_argument("--config", default="config/config.yaml", help="配置文件路径")
     args = parser.parse_args()
 
@@ -52,17 +78,19 @@ def main():
         artifacts_root=artifacts_root,
         config=cfg,
         config_path=args.config,
-        inputs={"manual": args.manual, "max_pages": args.max_pages},
+        inputs={"manual": args.manual, "max_pages": args.max_pages, "seed_file": args.seed_file},
     )
     setup_logging(cfg, component="fetch_tesla_service_manual", run_log_path=run.run_dir / "run.log")
 
     manual = MANUALS[args.manual]
-    seed_file = Path(manual["seed_file"])
+    seed_file = _resolve_seed_file(manual, args.seed_file)
     output_dir = Path(manual["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        seed_html = seed_file.read_text(encoding="utf-8")
+        seed_html, seed_origin = _load_seed_html(seed_file, manual["base_url"])
+        run.update_inputs(resolved_seed_file=str(seed_file))
+        run.update_stats(seed_origin=seed_origin)
         links = extract_manual_links(seed_html, manual["base_url"])
         if manual["base_url"] not in links:
             links.insert(0, manual["base_url"])
