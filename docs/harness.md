@@ -25,6 +25,27 @@
 - `python scripts/auto_pipeline.py`
   一键执行 `make check -> 官方数据下载/抓取 -> build_index --skip-embedding -> handoff`。
   可通过 `--with-embedding --with-graph` 开启重依赖阶段，并支持 `--hooks-file` / `--hook` 注入 pre/post hook。
+- `make auto-pipeline-cpu`
+  在无 CUDA 环境下使用 `config/config.cpu.yaml` 跑重依赖链路（Milvus + Neo4j，图谱阶段默认复用已有 entities 文件）。
+- `python scripts/validate_runtime.py`
+  对运行中的 API 执行运行时契约校验（`/health`、`/ready`、`/api/v1/chat`），并写入版本化运行产物。
+  可用 `--spawn-api --config config/config.cpu.yaml --skip-chat` 临时拉起 API 做轻量验收。
+- `make validate-runtime-smoke`
+  自动拉起 API（CPU 配置）并校验 `/health`、`/ready`。
+- `make validate-runtime-spawn`
+  自动拉起 API（CPU 配置）并执行完整契约校验（含 `/api/v1/chat`）。
+- `python scripts/eval_retrieval.py --qa-file tests/eval_qa_set.json`
+  基于固定评测集输出检索基线指标（Recall@K / MRR），默认使用 BM25。
+  可通过 `--mode auto` 尝试混合检索（Milvus 可用时）。
+- `make eval-retrieval-baseline`
+  使用 `tests/eval_retrieval_set.json` + `tests/eval_retrieval_qrels.json` 跑固定检索基线，并按 `tests/eval_retrieval_thresholds.json` 做阈值门禁。
+- `python scripts/eval_generation_baseline.py`
+  编排固定生成基线：可选自动拉起 API、执行固定集 RAGAS、按阈值判定并写版本化产物。
+  当前推荐参数与仓库默认入口：`make eval-generation-baseline`（`gpt-5.4 + https://cmdme.cn`）。
+- `make eval-generation-baseline`
+  使用 `tests/eval_generation_set.json` + `tests/eval_ragas_thresholds.json` 执行生成基线阈值门禁。
+- `python scripts/git_health.py`
+  检查 `.git` 是否可写、当前分支/commit、远端地址与工作区脏状态。
 - `python scripts/rollback_artifact.py --pipeline build_index --previous`
   回滚 `build_index` 或 `build_graph` 的文件产物到上一个激活版本。
 - `python scripts/rollback_milvus.py --previous`

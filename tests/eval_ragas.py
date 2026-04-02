@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config_loader import load_config
 
-API_BASE = "http://localhost:8000/api/v1"
+API_BASE = os.getenv("NEV_API_BASE", "http://localhost:8000/api/v1")
 
 # 评估用测试集格式（JSON 数组）：
 # [{"question": ..., "ground_truth": ..., "ground_truth_context": ...}, ...]
@@ -502,7 +502,7 @@ def build_embeddings(config_path: str) -> HuggingFaceBgeEmbeddings:
         encode_kwargs={"normalize_embeddings": True},
     )
 
-def call_api(question: str) -> tuple[str, list[str]]:
+def call_api(question: str, *, api_base: str, timeout_sec: int) -> tuple[str, list[str]]:
     """
     调用 RAG API 获取答案和检索上下文。
 
@@ -510,9 +510,9 @@ def call_api(question: str) -> tuple[str, list[str]]:
         (answer, contexts) 元组
     """
     resp = requests.post(
-        f"{API_BASE}/chat",
+        f"{api_base}/chat",
         json={"message": question},
-        timeout=120,
+        timeout=timeout_sec,
     )
     resp.raise_for_status()
     data = resp.json()
@@ -522,7 +522,12 @@ def call_api(question: str) -> tuple[str, list[str]]:
     return answer, contexts
 
 
-def build_ragas_dataset(qa_items: list[dict]) -> Dataset:
+def build_ragas_dataset(
+    qa_items: list[dict],
+    *,
+    api_base: str,
+    api_timeout: int,
+) -> Dataset:
     """
     调用 API 构建 RAGAS 评估数据集。
 
@@ -536,7 +541,11 @@ def build_ragas_dataset(qa_items: list[dict]) -> Dataset:
     for i, item in enumerate(qa_items):
         logger.info(f"评估进度 {i+1}/{len(qa_items)}: {item['question'][:40]}...")
         try:
-            answer, contexts = call_api(item["question"])
+            answer, contexts = call_api(
+                item["question"],
+                api_base=api_base,
+                timeout_sec=api_timeout,
+            )
         except Exception as e:
             logger.warning(f"API 调用失败，跳过: {e}")
             continue
@@ -575,6 +584,8 @@ def main():
     parser.add_argument("--qa-file", default=None, help=f"评估集 JSON 文件路径（默认使用内置示例）")
     parser.add_argument("--output", default="tests/ragas_results.json", help="评估结果输出路径")
     parser.add_argument("--config", default="config/config.yaml", help="配置文件路径（自动叠加 config.local.yaml）")
+    parser.add_argument("--api-base", default=API_BASE, help="被评估 API Base（默认读取 NEV_API_BASE 或 localhost）")
+    parser.add_argument("--api-timeout", type=int, default=120, help="单次 API 请求超时（秒）")
     parser.add_argument("--llm-model", default=None, help="评估用 LLM 模型名称（例如 gpt-5.4）")
     parser.add_argument("--llm-base-url", default=None, help="评估用 LLM Base URL（例如 https://cmdme.cn）")
     parser.add_argument("--llm-timeout", type=int, default=None, help="LLM 请求超时（秒）")
@@ -598,7 +609,11 @@ def main():
 
     # 构建数据集
     logger.info("调用 API 构建评估数据集...")
-    dataset = build_ragas_dataset(qa_items)
+    dataset = build_ragas_dataset(
+        qa_items,
+        api_base=args.api_base.rstrip("/"),
+        api_timeout=args.api_timeout,
+    )
 
     if len(dataset) == 0:
         logger.error("评估数据集为空，请确认 API 服务正常运行")
@@ -667,6 +682,8 @@ def main():
         "dataset_sha256": dataset_meta.get("dataset_sha256"),
         "dataset_source": dataset_meta.get("dataset_source"),
         "dataset_count": len(qa_items),
+        "api_base": args.api_base,
+        "api_timeout": args.api_timeout,
         "llm_model": args.llm_model or "gpt-4o-mini",
         "llm_base_url": args.llm_base_url,
         "embedding_model": str(getattr(embeddings, "model_name", None) or getattr(embeddings, "model", None)),

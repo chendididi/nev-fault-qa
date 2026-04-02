@@ -14,6 +14,7 @@
 - `docs/harness.md`：验证分层、命令入口、失败排查
 - `docs/telegram-integration.md`：Telegram Bot 对接与运行指南
 - `make help`：统一命令入口
+- `make git-health`：快速检查 `.git` 可写性、分支与远端状态
 
 ---
 
@@ -157,6 +158,9 @@ python scripts/auto_pipeline.py --include-html --with-nhtsa --nhtsa-make TESLA -
 
 # 开启重依赖阶段（需要 Milvus/Neo4j 可用）
 python scripts/auto_pipeline.py --include-html --with-embedding --with-graph --require-services
+
+# 无 CUDA 环境可用 CPU 配置跑重依赖链路（速度较慢）
+python scripts/auto_pipeline.py --config config/config.cpu.yaml --with-nhtsa --nhtsa-make TESLA --nhtsa-make BYD --with-embedding --with-graph --entities-file data/processed/chunks_with_entities.json --require-services --skip-check
 ```
 
 可选 hook：
@@ -166,6 +170,29 @@ python scripts/auto_pipeline.py \
   --include-html \
   --hooks-file config/auto_pipeline.hooks.example.json \
   --hook "build_chunks.post=python -m pytest tests/test_chunk_contract.py -q"
+```
+
+固定基线与运行时验收：
+
+```bash
+# 固定检索基线（Recall@K / MRR）
+python scripts/eval_retrieval.py --qa-file tests/eval_qa_set.json
+
+# 固定检索基线（qrels + 阈值门禁）
+make eval-retrieval-baseline
+
+# 校验已运行 API 的 /health /ready /api/v1/chat 契约
+python scripts/validate_runtime.py
+
+# 自动拉起 API 后验收（可选）
+python scripts/validate_runtime.py --spawn-api --config config/config.cpu.yaml --skip-chat
+
+# 固定生成基线（RAGAS + 阈值门禁，默认 gpt-5.4 + cmdme.cn）
+make eval-generation-baseline
+
+# Make 快捷入口
+make validate-runtime-smoke
+make validate-runtime-spawn
 ```
 
 将示例数据导入 Milvus（向量索引）：

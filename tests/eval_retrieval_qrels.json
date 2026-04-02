@@ -1,0 +1,60 @@
+[
+  {
+    "question": "P0300 故障码表示什么问题？",
+    "relevant_chunk_ids": [
+      "sample_001",
+      "sample_002"
+    ]
+  },
+  {
+    "question": "车辆启动困难时，建议的排查顺序是什么？",
+    "relevant_chunk_ids": [
+      "sample_005"
+    ]
+  },
+  {
+    "question": "U0100 故障码通常代表什么，应该先检查哪里？",
+    "relevant_chunk_ids": [
+      "sample_004"
+    ]
+  },
+  {
+    "question": "处理高压线缆前应佩戴哪类绝缘手套？",
+    "relevant_chunk_ids": [
+      "0c97c68beb30",
+      "abf19a87ee9d"
+    ]
+  },
+  {
+    "question": "充电时如果出现异常提示，手册建议优先检查什么？",
+    "relevant_chunk_ids": [
+      "3fc351df0089",
+      "355e3f1b6e23",
+      "ce28a953a739"
+    ]
+  },
+  {
+    "question": "ESC 警告灯闪烁通常表示系统处于什么状态？",
+    "relevant_chunk_ids": [
+      "76ada22e077c",
+      "70a05fb74eb7",
+      "203bc7b22fd4"
+    ]
+  },
+  {
+    "question": "轮胎气压过低时会出现什么报警提示？",
+    "relevant_chunk_ids": [
+      "7c11c2f28527",
+      "74e4b0c4a651",
+      "6f377db4d2f5"
+    ]
+  },
+  {
+    "question": "如果制动系统一个回路失效，车辆还能否继续制动？",
+    "relevant_chunk_ids": [
+      "d14b1274d078",
+      "acdb13c5d03f",
+      "7fccb58bf3f0"
+    ]
+  }
+]

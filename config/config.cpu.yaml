@@ -1,0 +1,68 @@
+# CPU fallback config for environments without available CUDA.
+# 说明：
+# - 该文件用于无 GPU 场景下跑离线链路验证（Milvus / Neo4j）。
+# - 图谱构建建议配合 --entities-file 复用已有实体结果，避免 CPU 运行大模型抽取。
+
+models:
+  qwen_vl:
+    model_path: "/root/ubuntuchen_file/models/Qwen2-VL-7B-Instruct"
+    device: "cpu"
+    max_new_tokens: 2048
+    temperature: 0.1
+    do_sample: false
+
+  embedding:
+    model_name: "/root/ubuntuchen_file/nev-fault-qa/models/bge-base-zh-v1.5"
+    device: "cpu"
+    batch_size: 32
+    max_seq_length: 512
+
+  reranker:
+    model_name: "/root/ubuntuchen_file/nev-fault-qa/models/bge-reranker-v2-m3"
+    device: "cpu"
+    batch_size: 8
+
+milvus:
+  host: "localhost"
+  port: 19530
+  collection_name: "nev_chunks"
+  dim: 768
+  index_type: "IVF_FLAT"
+  metric_type: "IP"
+  nlist: 1024
+  nprobe: 16
+
+neo4j:
+  uri: "bolt://localhost:7687"
+  username: "neo4j"
+  password: "nev_password_change_me"
+  database: "neo4j"
+
+retrieval:
+  bm25_top_k: 20
+  embedding_top_k: 20
+  rrf_k: 60
+  rerank_input_k: 20
+  rerank_output_k: 5
+
+data_processing:
+  chunk_size: 512
+  chunk_overlap: 64
+  table_extraction: true
+  circuit_ocr: false
+  circuit_image_ratio: 0.3
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+
+logging:
+  level: "INFO"
+  file: "logs/nev_qa.log"
+  rotation: "10 MB"
+  file_json: true
+  trace_enabled: true
+
+ops:
+  artifacts_root: "data/artifacts"
